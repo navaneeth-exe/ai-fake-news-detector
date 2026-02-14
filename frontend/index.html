@@ -1,74 +1,106 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TruthLens - AI Fake News Detector</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
     <div class="container">
-      <!-- Header -->
-      <header>
-        <h1>🔍 TruthLens</h1>
-        <p class="subtitle">AI-Powered Fake News Detector</p>
-      </header>
+        <!-- Header -->
+        <header>
+            <h1>🔍 TruthLens</h1>
+            <p class="subtitle">AI-Powered Fake News Detector</p>
+        </header>
 
-      <!-- Input Section -->
-      <div class="input-section">
-        <textarea
-          id="claimInput"
-          placeholder="Enter a news claim to verify... e.g. 'The Earth is flat'"
-          rows="4"
-        ></textarea>
-        <button id="verifyBtn">🔍 Verify Claim</button>
-      </div>
-
-      <!-- Example Claims -->
-      <div class="examples">
-        <p>Try these:</p>
-        <button class="example-btn" onclick="fillClaim('The Earth is flat')">
-          The Earth is flat
-        </button>
-        <button
-          class="example-btn"
-          onclick="fillClaim('Water boils at 100 degrees Celsius at sea level')"
-        >
-          Water boils at 100°C
-        </button>
-        <button
-          class="example-btn"
-          onclick="fillClaim('Humans only use 10 percent of their brain')"
-        >
-          Humans use 10% of brain
-        </button>
-      </div>
-
-      <!-- Loading -->
-      <div id="loading" style="display: none">
-        <div class="spinner"></div>
-        <p>Analyzing claim... This may take a few seconds.</p>
-      </div>
-
-      <!-- Error -->
-      <div id="errorMsg" style="display: none"></div>
-
-      <!-- Results -->
-      <div id="resultContainer" style="display: none">
-        <div id="verdict" class="verdict"></div>
-        <div class="score-section">
-          <span>Truth Score:</span>
-          <div class="score-bar">
-            <div id="scoreBar" class="score-fill"></div>
-          </div>
-          <span id="scoreText">0/100</span>
+        <!-- Input Section -->
+        <div class="input-section">
+            <textarea 
+                id="claimInput" 
+                placeholder="Enter a news claim OR paste a URL to analyze...&#10;&#10;Examples:&#10;• 'The Earth is flat'&#10;• https://bbc.com/news/article-link"
+                rows="4"
+            ></textarea>
+            <button id="verifyBtn">🔍 Verify Claim</button>
         </div>
-        <div id="explanation" class="explanation"></div>
-        <div id="context" class="context"></div>
-        <div id="sources" class="sources"></div>
-      </div>
+
+        <!-- Example Claims -->
+        <div class="examples">
+            <p>Try these claims:</p>
+            <button class="example-btn" onclick="fillClaim('The Earth is flat')">The Earth is flat</button>
+            <button class="example-btn" onclick="fillClaim('Water boils at 100 degrees Celsius at sea level')">Water boils at 100°C</button>
+            <button class="example-btn" onclick="fillClaim('Humans only use 10 percent of their brain')">Humans use 10% of brain</button>
+        </div>
+        <div class="examples">
+            <p>Or try a URL:</p>
+            <button class="example-btn url-example" onclick="fillClaim('https://www.bbc.com/news')">🔗 BBC News</button>
+            <button class="example-btn url-example" onclick="fillClaim('https://www.reuters.com')">🔗 Reuters</button>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" style="display:none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Analyzing claim... This may take a few seconds.</p>
+        </div>
+
+        <!-- Error -->
+        <div id="errorMsg" style="display:none;"></div>
+
+        <!-- TEXT CLAIM Results -->
+        <div id="resultContainer" style="display:none;">
+            <div id="verdict" class="verdict"></div>
+            <div class="score-section">
+                <span>Truth Score:</span>
+                <div class="score-bar">
+                    <div id="scoreBar" class="score-fill"></div>
+                </div>
+                <span id="scoreText">0/100</span>
+            </div>
+            <div id="explanation" class="explanation"></div>
+            <div id="context" class="context"></div>
+            <div id="sources" class="sources"></div>
+        </div>
+
+        <!-- URL ANALYSIS Results -->
+        <div id="urlResultContainer" style="display:none;">
+            <!-- Article Info -->
+            <div class="article-meta">
+                <span id="domainBadge" class="domain-badge"></span>
+                <h2 id="articleTitle" class="article-title"></h2>
+                <p class="article-info">
+                    <span id="articleAuthor"></span>
+                    <span id="articleDate"></span>
+                </p>
+                <p id="articleExcerpt" class="article-excerpt"></p>
+            </div>
+
+            <!-- Credibility Score -->
+            <div id="urlVerdict" class="verdict"></div>
+            <div class="score-section">
+                <span>Credibility Score:</span>
+                <div class="score-bar">
+                    <div id="urlScoreBar" class="score-fill"></div>
+                </div>
+                <span id="urlScoreText">0/100</span>
+            </div>
+
+            <!-- Bias Indicator -->
+            <div id="biasSection" class="bias-section">
+                <span class="bias-label">Bias Detected:</span>
+                <span id="biasBadge" class="bias-badge"></span>
+            </div>
+
+            <!-- Analysis Details -->
+            <div id="analysisDetails" class="analysis-details"></div>
+
+            <!-- Red Flags -->
+            <div id="redFlags" class="red-flags" style="display:none;"></div>
+
+            <!-- Key Claims -->
+            <div id="keyClaims" class="key-claims"></div>
+        </div>
     </div>
 
     <script src="script.js"></script>
-  </body>
+</body>
 </html>
