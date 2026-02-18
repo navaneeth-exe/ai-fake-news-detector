@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ParticleCanvas from './components/ParticleCanvas';
-import BackgroundBlobs from './components/BackgroundBlobs';
+
+
 import TabNav from './components/TabNav';
 import InputPanel from './components/InputPanel';
 import TextResult from './components/TextResult';
@@ -151,7 +152,8 @@ export default function App() {
   return (
     <div className="relative min-h-screen" style={{ background: 'var(--bg-primary)' }}>
       {/* Background layers */}
-      <BackgroundBlobs />
+
+
       <ParticleCanvas theme={theme} />
 
       {/* Toast notifications */}

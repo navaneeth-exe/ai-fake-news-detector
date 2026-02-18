@@ -1,8 +1,18 @@
 import { useEffect, useRef } from 'react';
 
-const PARTICLE_COUNT = 80;
-const CONNECTION_DIST = 120;
-const MOUSE_RADIUS = 100;
+// ─── Neural Network Grid ───
+// A structured dot grid that warps toward the cursor,
+// connecting nearby nodes with glowing lines to simulate
+// an AI "thinking" network.
+//
+// Updates: Now dynamically uses CSS variables for theming.
+
+const GRID_SPACING = 50;        // Distance between grid nodes
+const MOUSE_RADIUS = 180;       // Influence radius of the cursor
+const WARP_STRENGTH = 25;       // How much nodes get pulled toward cursor
+const CONNECTION_DIST = 70;     // Max distance to draw connections
+const CURSOR_CONNECTION = 200;  // Connect cursor to nodes within this range
+const NODE_RADIUS = 1.5;        // Base dot size
 const FRAME_INTERVAL = 1000 / 30; // ~30fps throttle
 
 export default function ParticleCanvas({ theme }) {
@@ -14,29 +24,61 @@ export default function ParticleCanvas({ theme }) {
     const ctx = canvas.getContext('2d');
     let animId;
     let lastFrame = 0;
-    let particles = [];
+    let gridNodes = [];
     const mouse = { x: -1000, y: -1000 };
+
+    // Helper to get current theme colors from CSS variables
+    const getColors = () => {
+      const style = getComputedStyle(document.documentElement);
+      
+      // Fetch theme variables
+      const accent = style.getPropertyValue('--accent').trim() || '#6366f1';
+      const textSecondary = style.getPropertyValue('--text-2').trim() || '#94a3b8';
+      const textTertiary = style.getPropertyValue('--text-3').trim() || '#64748b';
+      
+      // hexToRgba helper
+      const hexToRgba = (hex) => {
+        let c;
+        if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+            c= hex.substring(1).split('');
+            if(c.length== 3){
+                c= [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c= '0x'+c.join('');
+            return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+',';
+        }
+        return 'rgba(148, 163, 184,'; // Fallback
+      };
+
+      return {
+        dot: hexToRgba(textTertiary),         // Dots use tertiary text color
+        line: hexToRgba(textSecondary),       // Lines use secondary text color
+        cursorLine: hexToRgba(accent),        // Cursor lines use accent
+        cursorGlow: accent,                   // Glow uses accent
+      };
+    };
+
+    const buildGrid = () => {
+      gridNodes = [];
+      const cols = Math.ceil(canvas.width / GRID_SPACING) + 2;
+      const rows = Math.ceil(canvas.height / GRID_SPACING) + 2;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          gridNodes.push({
+            originX: c * GRID_SPACING,
+            originY: r * GRID_SPACING,
+            x: c * GRID_SPACING,
+            y: r * GRID_SPACING,
+          });
+        }
+      }
+    };
 
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      buildGrid();
     };
-
-    const init = () => {
-      particles = Array.from({ length: PARTICLE_COUNT }, () => ({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 1.4,
-        vy: (Math.random() - 0.5) * 1.4,
-        radius: Math.random() * 2 + 1,
-        opacity: Math.random() * 0.5 + 0.2,
-      }));
-    };
-
-    const getColors = () =>
-      theme === 'light'
-        ? { particle: 'rgba(79,70,229,', line: 'rgba(79,70,229,' }
-        : { particle: 'rgba(255,255,255,', line: 'rgba(99,102,241,' };
 
     const animate = (now) => {
       animId = requestAnimationFrame(animate);
@@ -44,42 +86,93 @@ export default function ParticleCanvas({ theme }) {
       lastFrame = now;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const { particle, line } = getColors();
+      const colors = getColors(); // Fetch colors every frame to react to theme changes immediately
 
-      for (const p of particles) {
-        const dx = p.x - mouse.x, dy = p.y - mouse.y;
+      // 1. Update node positions (warp toward cursor)
+      for (const node of gridNodes) {
+        const dx = mouse.x - node.originX;
+        const dy = mouse.y - node.originY;
         const dist = Math.hypot(dx, dy);
-        if (dist < MOUSE_RADIUS) {
-          const force = (MOUSE_RADIUS - dist) / MOUSE_RADIUS;
-          p.vx += (dx / dist) * force * 0.4;
-          p.vy += (dy / dist) * force * 0.4;
-        }
-        p.vx *= 0.99; p.vy *= 0.99;
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        p.x = Math.max(0, Math.min(canvas.width, p.x));
-        p.y = Math.max(0, Math.min(canvas.height, p.y));
 
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `${particle}${p.opacity})`;
-        ctx.fill();
+        if (dist < MOUSE_RADIUS && dist > 0) {
+          const force = (1 - dist / MOUSE_RADIUS);
+          const easedForce = force * force; 
+          node.x = node.originX + (dx / dist) * easedForce * WARP_STRENGTH;
+          node.y = node.originY + (dy / dist) * easedForce * WARP_STRENGTH;
+        } else {
+          node.x += (node.originX - node.x) * 0.1;
+          node.y += (node.originY - node.y) * 0.1;
+        }
       }
 
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const a = particles[i], b = particles[j];
+      // 2. Draw grid connections
+      for (let i = 0; i < gridNodes.length; i++) {
+        const a = gridNodes[i];
+        for (let j = i + 1; j < gridNodes.length; j++) {
+          const b = gridNodes[j];
           const d = Math.hypot(a.x - b.x, a.y - b.y);
           if (d < CONNECTION_DIST) {
-            const op = (1 - d / CONNECTION_DIST) * 0.15;
+            const opacity = (1 - d / CONNECTION_DIST) * 0.15;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `${line}${op})`;
-            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = `${colors.line}${opacity})`;
+            ctx.lineWidth = 0.5;
             ctx.stroke();
           }
+        }
+      }
+
+      // 3. Draw cursor connections
+      if (mouse.x > 0 && mouse.y > 0) {
+        for (const node of gridNodes) {
+          const d = Math.hypot(node.x - mouse.x, node.y - mouse.y);
+          if (d < CURSOR_CONNECTION) {
+            const opacity = (1 - d / CURSOR_CONNECTION) * 0.6;
+            ctx.beginPath();
+            ctx.moveTo(mouse.x, mouse.y);
+            ctx.lineTo(node.x, node.y);
+            ctx.strokeStyle = `${colors.cursorLine}${opacity})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+
+        // Cursor glow
+        const gradient = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 80);
+        gradient.addColorStop(0, `${colors.cursorLine}0.1)`);
+        gradient.addColorStop(1, `${colors.cursorLine}0)`);
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, 80, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+      }
+
+      // 4. Draw nodes (dots)
+      for (const node of gridNodes) {
+        const dx = mouse.x - node.x;
+        const dy = mouse.y - node.y;
+        const dist = Math.hypot(dx, dy);
+        const isNearCursor = dist < MOUSE_RADIUS;
+
+        const radius = isNearCursor
+          ? NODE_RADIUS + (1 - dist / MOUSE_RADIUS) * 2
+          : NODE_RADIUS;
+        const opacity = isNearCursor
+          ? 0.4 + (1 - dist / MOUSE_RADIUS) * 0.5
+          : 0.2;
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `${colors.dot}${opacity})`;
+        ctx.fill();
+
+        // Bright glow for very close nodes
+        if (dist < MOUSE_RADIUS * 0.4) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius + 2, 0, Math.PI * 2);
+          ctx.fillStyle = `${colors.cursorLine}${(1 - dist / (MOUSE_RADIUS * 0.4)) * 0.2})`;
+          ctx.fill();
         }
       }
     };
@@ -88,8 +181,7 @@ export default function ParticleCanvas({ theme }) {
     const onLeave = () => { mouse.x = -1000; mouse.y = -1000; };
 
     resize();
-    init();
-    window.addEventListener('resize', () => { resize(); init(); });
+    window.addEventListener('resize', resize);
     window.addEventListener('mousemove', onMouse);
     window.addEventListener('mouseleave', onLeave);
     animId = requestAnimationFrame(animate);
@@ -100,7 +192,7 @@ export default function ParticleCanvas({ theme }) {
       window.removeEventListener('mousemove', onMouse);
       window.removeEventListener('mouseleave', onLeave);
     };
-  }, [theme]);
+  }, [theme]); // Re-run effect if theme changes
 
   return (
     <canvas
