@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ParticleCanvas from './components/ParticleCanvas';
+import AmbientLights from './components/AmbientLights';
+
 
 
 import TabNav from './components/TabNav';
@@ -154,6 +156,8 @@ export default function App() {
       {/* Background layers */}
 
 
+
+      <AmbientLights theme={theme} />
       <ParticleCanvas theme={theme} />
 
       {/* Toast notifications */}
