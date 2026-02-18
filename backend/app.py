@@ -1108,6 +1108,10 @@ def extract_exif(img: 'Image.Image') -> dict:
     }
 
     try:
+        # Check if method exists (PNGs etc don't have it)
+        if not hasattr(img, '_getexif'):
+            return exif_data
+            
         raw_exif = img._getexif()
         if not raw_exif:
             return exif_data
@@ -1320,7 +1324,9 @@ def image_check():
 
             mime_type = file.content_type or 'image/jpeg'
             if mime_type not in ALLOWED_IMAGE_TYPES:
-                return jsonify({'success': False, 'error': f'Unsupported file type: {mime_type}. Use JPEG, PNG, WebP, or GIF.'}), 400
+                # Try to be lenient if mime type is generic but filename has extension
+                if not any(file.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']):
+                     return jsonify({'success': False, 'error': f'Unsupported file type: {mime_type}. Use JPEG, PNG, WebP, or GIF.'}), 400
 
             img_bytes = file.read()
             source_name = file.filename
@@ -1331,11 +1337,15 @@ def image_check():
         elif request.is_json and request.json.get('image_url'):
             image_url = request.json['image_url'].strip()
             print(f"\n🖼️ Fetching image from URL: {image_url}")
-            resp = http_requests.get(image_url, timeout=10, stream=True)
-            resp.raise_for_status()
-            mime_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
-            img_bytes = resp.content
-            source_name = image_url
+            try:
+                resp = http_requests.get(image_url, timeout=10, stream=True)
+                resp.raise_for_status()
+                mime_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
+                img_bytes = resp.content
+                source_name = image_url
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Could not fetch image URL: {str(e)}'}), 400
+            
             if len(img_bytes) > MAX_IMAGE_SIZE:
                 return jsonify({'success': False, 'error': 'Image too large. Maximum size is 10 MB.'}), 400
 
@@ -1349,7 +1359,8 @@ def image_check():
             img = Image.open(io.BytesIO(img_bytes))
             img.verify()  # Check integrity
             img = Image.open(io.BytesIO(img_bytes))  # Re-open after verify
-        except UnidentifiedImageError:
+        except Exception as e:
+            print(f"❌ Image open error: {e}")
             return jsonify({'success': False, 'error': 'Could not read image. Make sure it is a valid image file.'}), 400
 
         w, h = img.size
@@ -1357,43 +1368,63 @@ def image_check():
 
         # ── Layer 1: EXIF ──
         print("  Layer 1: EXIF metadata...")
-        exif = extract_exif(img)
+        exif = {'has_exif': False, 'ai_software_detected': None, 'camera_make': None, 'gps': False}
+        try:
+            exif = extract_exif(img)
+        except Exception as e:
+            print(f"⚠️ EXIF layer failed: {e}")
 
         # ── Layer 2: Image stats ──
         print("  Layer 2: Image statistics...")
-        stats = analyze_image_stats(img)
+        stats = {'risk_points': 0, 'signals': []}
+        try:
+            stats = analyze_image_stats(img)
+        except Exception as e:
+            print(f"⚠️ Stats layer failed: {e}")
 
         # ── Layer 3: Groq Vision ──
         print("  Layer 3: Groq Vision AI...")
-        # Resize for API if too large (keep under ~1MB encoded)
-        if len(img_bytes) > 800_000:
-            img_resized = img.convert('RGB')
-            buf = io.BytesIO()
-            img_resized.thumbnail((1024, 1024), Image.LANCZOS)
-            img_resized.save(buf, format='JPEG', quality=85)
-            img_bytes_for_api = buf.getvalue()
-            mime_type_for_api = 'image/jpeg'
-        else:
-            img_bytes_for_api = img_bytes
-            mime_type_for_api = mime_type
+        ai_result = {
+             'ai_probability': 50, 'verdict': 'UNCERTAIN', 
+             'explanation': 'AI analysis skipped due to error.', 
+             'signals': []
+        }
+        
+        try:
+            # Resize for API if too large (keep under ~1MB encoded)
+            if len(img_bytes) > 800_000:
+                img_resized = img.convert('RGB')
+                buf = io.BytesIO()
+                # Safe resampling method (Pillow 10+)
+                resample_method = getattr(Image, 'Resampling', Image).LANCZOS
+                img_resized.thumbnail((1024, 1024), resample_method)
+                img_resized.save(buf, format='JPEG', quality=85)
+                img_bytes_for_api = buf.getvalue()
+                mime_type_for_api = 'image/jpeg'
+            else:
+                img_bytes_for_api = img_bytes
+                mime_type_for_api = mime_type
 
-        ai_result = groq_vision_analysis(img_bytes_for_api, mime_type_for_api, exif, stats)
+            ai_result = groq_vision_analysis(img_bytes_for_api, mime_type_for_api, exif, stats)
+        except Exception as e:
+            print(f"⚠️ Groq Vision layer failed: {e}")
+            ai_result['signals'].append(f"AI analysis failed: {str(e)}")
 
-        # ── Build EXIF signals ──
+        # ── Build Final Signals ──
         exif_signals = []
-        if not exif['has_exif']:
+        if not exif.get('has_exif'):
             exif_signals.append('No EXIF metadata found — AI-generated images typically lack EXIF')
         else:
-            if exif['ai_software_detected']:
+            if exif.get('ai_software_detected'):
                 exif_signals.append(f'AI software in EXIF: {exif["ai_software_detected"]}')
-            if exif['camera_make']:
-                exif_signals.append(f'Camera: {exif["camera_make"]} {exif["camera_model"] or ""}')
-            if exif['gps']:
+            if exif.get('camera_make'):
+                exif_signals.append(f'Camera: {exif["camera_make"]} {exif.get("camera_model") or ""}')
+            if exif.get('gps'):
                 exif_signals.append('GPS location data present')
 
-        all_signals = exif_signals + stats['signals'] + (ai_result.get('signals') or [])
+        all_signals = exif_signals + stats.get('signals', []) + (ai_result.get('signals') or [])
 
-        print(f"✅ Image check complete: {ai_result['verdict']} ({ai_result['ai_probability']}% AI probability)")
+        print(f"✅ Image check complete: {ai_result.get('verdict', 'UNCERTAIN')} ({ai_result.get('ai_probability', 0)}% AI probability)")
 
         return jsonify({
             'success': True,
@@ -1402,8 +1433,8 @@ def image_check():
                 'dimensions': {'width': w, 'height': h},
                 'mode': mode,
                 'file_size_kb': len(img_bytes) // 1024,
-                'ai_probability': ai_result['ai_probability'],
-                'verdict': ai_result['verdict'],
+                'ai_probability': ai_result.get('ai_probability', 0),
+                'verdict': ai_result.get('verdict', 'UNCERTAIN'),
                 'manipulation_type': ai_result.get('manipulation_type', 'Unknown'),
                 'signals': all_signals,
                 'exif': exif,
@@ -1415,12 +1446,10 @@ def image_check():
             'timestamp': datetime.now().isoformat()
         })
 
-    except http_requests.RequestException as e:
-        return jsonify({'success': False, 'error': f'Could not fetch image URL: {str(e)}'}), 400
     except Exception as e:
-        print(f"❌ Image endpoint error: {e}")
+        print(f"❌ Image endpoint CRITICAL error: {e}")
         import traceback; traceback.print_exc()
-        return jsonify({'success': False, 'error': 'Internal server error. Please try again.'}), 500
+        return jsonify({'success': False, 'error': f'Internal server error: {str(e)}'}), 500
 
 
 
