@@ -1,83 +1,54 @@
-# 🔍 TruthLens — AI-Powered Fake News Detector
+# 🔍 TruthLens — AI-Powered Fake News & Deepfake Detector
 
-> Verify any news claim or article URL in seconds using AI and real-time web evidence.
+> **The ultimate forensic tool for the post-truth era.** Verify text, URLs, images, and audio with military-grade AI analysis, wrapped in a stunning, theme-reactive interface.
 
-![Python](https://img.shields.io/badge/Python-3.9+-3776ab?logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask)
-![Groq](https://img.shields.io/badge/AI-Groq%20Llama%203.3-f55036)
-![License](https://img.shields.io/badge/License-MIT-green)
+![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react&logoColor=black)
+![Tailwind](https://img.shields.io/badge/Styling-TailwindCSS-38B2AC?logo=tailwind-css&logoColor=white)
+![Framer Motion](https://img.shields.io/badge/Motion-Framer-0055FF?logo=framer&logoColor=white)
+![Python](https://img.shields.io/badge/Backend-Flask-000000?logo=flask&logoColor=white)
+![Groq](https://img.shields.io/badge/AI-Groq%20Llama%203-f55036)
 
 ---
 
 ## ✨ Features
 
-### 📝 Text Claim Verification
+### 🖥️ **Forensic Dashboard**
 
-Enter any news claim in plain text and get:
+- **Live Trending Feed**: Real-time misinformation alerts from around the globe.
+- **Visual Intelligence**: Interactive trust score rings, waveform visualizers, and confidence bars.
+- **History System**: Searchable, filterable local history of all your verifications.
 
-- **Verdict** — REAL ✅, FAKE ❌, or UNCERTAIN ⚠️
-- **Truth Score** — 0 to 100 confidence rating
-- **AI Explanation** — Why the claim is true or false
-- **Source Links** — Real news articles used as evidence
+### 🕵️ **Multi-Modal Verification**
 
-### 🌐 URL Article Analysis
+1.  **📝 Text Analysis**: Fact-checks claims using real-time web evidence (SerpAPI).
+2.  **🌐 URL Scanner**: Detects phishing, bias, and clickbait in news articles.
+3.  **🖼️ Image Forensics**: Analyzes noise patterns and metadata to detect AI generation (Deepfakes).
+4.  **🎙️ Audio Analysis**: Identifies synthetic voices and robotic artifacts in audio clips.
 
-Paste any article URL and get:
+### 🎨 **Immersive UI Experience**
 
-- **Credibility Score** — 0 to 100 rating of the article
-- **Bias Detection** — Neutral, Left, Right, Commercial, or Sensationalist
-- **Red Flags** — Clickbait, unverified claims, logical fallacies
-- **Key Claims Verified** — Individual fact-checking of claims in the article
+- **Neural Network Grid**: A living background that adapts to your theme and reacts to your mouse.
+- **Theme Switcher**: 4 Distinct Personalities:
+  - **☄️ Cosmic** (Default Dark/Purple)
+  - **🌿 Eco** (Nature/Green)
+  - **🔥 Ember** (High Contrast/Red)
+  - **🏢 Corporate** (Professional Light/Blue)
+- **Social Sharing**: Generate beautiful, shareable cards of your verification results instantly.
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer        | Technology               | Purpose                             |
-| ------------ | ------------------------ | ----------------------------------- |
-| **Frontend** | HTML5, CSS3, JavaScript  | User interface                      |
-| **Backend**  | Python, Flask            | REST API server                     |
-| **AI Model** | Groq API (Llama 3.3 70B) | Fact analysis & credibility scoring |
-| **Search**   | SerpAPI                  | Real-time Google News evidence      |
-| **Scraping** | BeautifulSoup + lxml     | Article content extraction          |
-
----
-
-## 🏗️ Architecture
-
-```
-User Input (Text or URL)
-         │
-         ▼
-┌─────────────────────┐
-│   Flask Backend      │
-│   (localhost:5000)   │
-└────────┬────────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-  TEXT       URL
-    │         │
-    ▼         ▼
- Extract    Scrape article
- Keywords   (BeautifulSoup)
-    │         │
-    ▼         ▼
- Search     AI Credibility
- Evidence   Analysis (Groq)
- (SerpAPI)    │
-    │         ▼
-    ▼       Extract & Verify
- AI Fact    Key Claims
- Analysis     │
- (Groq)       │
-    │         │
-    ▼         ▼
-┌─────────────────────┐
-│  Results displayed   │
-│  in Browser          │
-└─────────────────────┘
-```
+| Layer               | Technology          | Purpose                             |
+| :------------------ | :------------------ | :---------------------------------- |
+| **Frontend**        | **React 18 + Vite** | High-performance reactive UI        |
+| **Styling**         | **TailwindCSS**     | Utility-first styling system        |
+| **Animation**       | **Framer Motion**   | Smooth layout transitions & effects |
+| **Visuals**         | **Canvas API**      | Neural Grid & Particle systems      |
+| **Backend**         | **Python Flask**    | REST API & orchestration            |
+| **AI Intelligence** | **Groq (Llama 3)**  | Context analysis & reasoning        |
+| **Web Search**      | **SerpAPI**         | Real-time fact retrieval            |
+| **Scraping**        | **BeautifulSoup**   | Article content extraction          |
 
 ---
 
@@ -85,195 +56,90 @@ User Input (Text or URL)
 
 ### Prerequisites
 
-- Python 3.9 or higher
-- A [Groq API key](https://console.groq.com/keys) (free)
-- A [SerpAPI key](https://serpapi.com/users/sign_up) (100 free searches/month)
+- Node.js 18+
+- Python 3.9+
+- API Keys: [Groq](https://console.groq.com) and [SerpAPI](https://serpapi.com)
 
 ### Installation
 
+#### 1. Backend Setup (Flask)
+
 ```bash
-# 1. Clone the repository
 git clone https://github.com/navaneeth-exe/ai-fake-news-detector.git
-cd ai-fake-news-detector
+cd ai-fake-news-detector/backend
 
-# 2. Create virtual environment
+# Create virtual env
 python -m venv venv
+# Activate: venv\Scripts\activate (Windows) or source venv/bin/activate (Mac/Linux)
 
-# Windows
-venv\Scripts\activate
+# Install deps
+pip install -r requirements.txt
 
-# macOS/Linux
-source venv/bin/activate
+# Configure Environment
+cp .env.example .env
+# Add your GROQ_API_KEY and SERPAPI_KEY in .env
 
-# 3. Install dependencies
-pip install -r backend/requirements.txt
-
-# 4. Set up API keys
-cp backend/.env.example backend/.env
-# Edit backend/.env and add your keys:
-#   GROQ_API_KEY=your_groq_key_here
-#   SERPAPI_KEY=your_serpapi_key_here
-
-# 5. Start the server
-python backend/app.py
-
-# 6. Open frontend/index.html in your browser
+# Run Server
+python app.py
 ```
 
-The server runs at `http://localhost:5000`. Open `frontend/index.html` directly in your browser.
+#### 2. Frontend Setup (React)
+
+```bash
+cd ../frontend
+
+# Install dependencies
+npm install
+
+# Run Development Server
+npm run dev
+```
+
+Open `http://localhost:5173` to launch TruthLens.
 
 ---
 
-## 📡 API Endpoints
-
-| Method | Endpoint      | Description                     |
-| ------ | ------------- | ------------------------------- |
-| `GET`  | `/`           | API info                        |
-| `GET`  | `/health`     | Health check & key status       |
-| `POST` | `/api/verify` | Verify a claim or analyze a URL |
-
-### Request
-
-```json
-POST /api/verify
-Content-Type: application/json
-
-{
-  "claim": "The Earth is flat"
-}
-```
-
-Or with a URL:
-
-```json
-{
-  "claim": "https://www.bbc.com/news/some-article"
-}
-```
-
-### Response — Text Claim
-
-```json
-{
-  "success": true,
-  "input_type": "text",
-  "data": {
-    "verdict": "FAKE",
-    "score": 5,
-    "explanation": "The claim that the Earth is flat contradicts scientific evidence...",
-    "verified_context": "The Earth is an oblate spheroid...",
-    "sources": [
-      {
-        "title": "Earth's shape explained",
-        "link": "https://...",
-        "snippet": "..."
-      }
-    ],
-    "keywords": ["Earth", "flat", "shape"]
-  }
-}
-```
-
-### Response — URL Analysis
-
-```json
-{
-  "success": true,
-  "input_type": "url",
-  "data": {
-    "url": "https://example.com/article",
-    "domain": "example.com",
-    "article": {
-      "title": "Article Headline",
-      "author": "Author Name",
-      "date": "2026-02-14",
-      "excerpt": "First 200 characters..."
-    },
-    "credibility_score": 82,
-    "verdict": "MOSTLY_CREDIBLE",
-    "bias_detected": "neutral",
-    "analysis": {
-      "accuracy": "Claims are well-sourced...",
-      "bias": "No significant bias detected...",
-      "sensationalism": "Headline is factual...",
-      "quality": "Well-written with proper citations..."
-    },
-    "red_flags": [],
-    "key_claims": [
-      {
-        "claim": "A key fact from the article",
-        "verdict": "VERIFIED",
-        "sources": [...]
-      }
-    ]
-  }
-}
-```
-
----
-
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```
 ai-news-detector/
-├── backend/
-│   ├── app.py              # Flask API server (all backend logic)
-│   ├── requirements.txt    # Python dependencies
-│   ├── .env                # API keys (git-ignored)
-│   └── .env.example        # API key template
+├── backend/                # Python Flask API
+│   ├── app.py              # Main application logic
+│   ├── requirements.txt    # Backend dependencies
+│   └── .env                # Secrets
 │
-├── frontend/
-│   ├── index.html          # Main UI page
-│   ├── style.css           # Styling
-│   └── script.js           # Frontend logic
+├── frontend/               # React + Vite Application
+│   ├── src/
+│   │   ├── components/     # UI Components (Dashboard, Results, Inputs)
+│   │   ├── hooks/          # Custom Hooks (useTheme, useHistory)
+│   │   ├── lib/            # API utilities
+│   │   ├── index.css       # Tailwind & Theme Variables
+│   │   └── App.jsx         # Main Router & Layout
+│   └── vite.config.js      # Bundler config
 │
-├── .gitignore
-└── README.md
+└── README.md               # You are here
 ```
-
----
-
-## 🧪 Test Claims
-
-| Claim                                                  | Expected Result     |
-| ------------------------------------------------------ | ------------------- |
-| "The Earth is flat"                                    | ❌ FAKE (score ~5)  |
-| "Water boils at 100 degrees Celsius at sea level"      | ✅ REAL (score ~95) |
-| "NASA confirmed an asteroid will hit Earth next year"  | ❌ FAKE (score ~0)  |
-| "India landed a spacecraft near the Moon's south pole" | ✅ REAL (score ~90) |
-| "Humans only use 10 percent of their brain"            | ❌ FAKE (score ~15) |
-
----
-
-## 🔑 API Keys
-
-| Service     | Free Tier          | Get Key                                                |
-| ----------- | ------------------ | ------------------------------------------------------ |
-| **Groq**    | 30 requests/min    | [console.groq.com/keys](https://console.groq.com/keys) |
-| **SerpAPI** | 100 searches/month | [serpapi.com](https://serpapi.com/users/sign_up)       |
 
 ---
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-feature`)
-3. Commit changes (`git commit -m 'Add new feature'`)
-4. Push to branch (`git push origin feature/new-feature`)
-5. Open a Pull Request
+1. Fork the repo.
+2. Create your feature branch: `git checkout -b feature/amazing-feature`.
+3. Commit your changes: `git commit -m 'Add amazing feature'`.
+4. Push to the branch: `git push origin feature/amazing-feature`.
+5. Open a Pull Request.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
 ## 👨‍💻 Author
 
-**Navaneeth** — [@navaneeth-exe](https://github.com/navaneeth-exe)
+**Navaneeth** — [GitHub](https://github.com/navaneeth-exe)
 
----
-
-_Built with ❤️ for fighting misinformation_
+_"In a world of noise, be the signal."_
