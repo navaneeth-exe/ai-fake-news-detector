@@ -1092,7 +1092,7 @@ AI_SOFTWARE_SIGNATURES = [
 ]
 
 ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
-MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB (Reduced for deployment stability)
 
 
 def extract_exif(img: 'Image.Image') -> dict:
