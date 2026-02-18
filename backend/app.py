@@ -887,10 +887,7 @@ def check_google_safe_browsing(url: str) -> dict:
             }
         }
         
-        response = requests.post(
-            f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={gsb_key}',
-            json=payload, timeout=5
-        )
+        response = http_requests.post(endpoint, json=payload, timeout=5)
         data = response.json()
 
         if data.get('matches'):
