@@ -1559,7 +1559,7 @@ def audio_check():
             with open(temp_path, "rb") as f:
                 transcription = client.audio.transcriptions.create(
                     file=(temp_filename, f.read()),
-                    model="distil-whisper-large-v3-en",
+                    model="whisper-large-v3",
                     response_format="json",
                     language="en",
                     temperature=0.0
