@@ -622,6 +622,959 @@ def handle_url_analysis(url):
 
 
 # ============================================
+# PHISHING LINK DETECTOR
+# ============================================
+
+import ssl
+import socket
+import ipaddress
+import urllib.parse
+
+# Lazy-import whois so missing package doesn't crash the whole app
+try:
+    import whois as whois_lib
+    WHOIS_AVAILABLE = True
+except ImportError:
+    WHOIS_AVAILABLE = False
+    print("⚠️  python-whois not installed — WHOIS layer disabled")
+
+# Known URL shorteners
+URL_SHORTENERS = {
+    'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly', 'short.link',
+    'buff.ly', 'adf.ly', 'tiny.cc', 'is.gd', 'cli.gs', 'pic.gd',
+    'cutt.ly', 'rb.gy', 'shorturl.at', 'snip.ly'
+}
+
+# Suspicious keywords in URLs
+SUSPICIOUS_KEYWORDS = [
+    'login', 'signin', 'verify', 'secure', 'update', 'confirm',
+    'account', 'banking', 'password', 'credential', 'wallet',
+    'paypal', 'amazon', 'apple', 'microsoft', 'google', 'facebook',
+    'netflix', 'support', 'helpdesk', 'recover', 'suspended',
+    'unusual', 'activity', 'limited', 'unlock', 'validate'
+]
+
+# Trusted TLDs that are less commonly phished (not a guarantee)
+SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.click', '.link']
+
+
+def analyze_url_heuristics(url: str) -> dict:
+    """Layer 1: Pure URL pattern analysis. Returns risk points and signals."""
+    signals = []
+    risk = 0
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+        hostname = parsed.hostname or ''
+        path_query = (parsed.path + '?' + parsed.query).lower()
+        full_url = url.lower()
+
+        # 1. IP address as hostname
+        try:
+            ipaddress.ip_address(hostname)
+            signals.append('IP address used instead of domain name')
+            risk += 30
+        except ValueError:
+            pass
+
+        # 2. @ symbol in URL (redirects to different host)
+        if '@' in url:
+            signals.append('@ symbol in URL (host redirect trick)')
+            risk += 20
+
+        # 3. Excessive subdomains (> 3 dots in hostname)
+        subdomain_count = hostname.count('.')
+        if subdomain_count > 3:
+            signals.append(f'Excessive subdomains ({subdomain_count} levels deep)')
+            risk += 20
+
+        # 4. Lookalike characters (0→o, 1→l, rn→m, etc.)
+        lookalike_map = {'0': 'o', '1': 'l', '3': 'e', '4': 'a', '5': 's', '@': 'a'}
+        normalized = hostname
+        for fake, real in lookalike_map.items():
+            normalized = normalized.replace(fake, real)
+        if normalized != hostname:
+            signals.append('Lookalike characters in domain (e.g. 0→o, 1→l)')
+            risk += 25
+
+        # 5. Suspicious keywords in URL
+        found_keywords = [kw for kw in SUSPICIOUS_KEYWORDS if kw in full_url]
+        if len(found_keywords) >= 2:
+            signals.append(f'Multiple suspicious keywords: {", ".join(found_keywords[:4])}')
+            risk += 15
+        elif len(found_keywords) == 1:
+            signals.append(f'Suspicious keyword in URL: {found_keywords[0]}')
+            risk += 8
+
+        # 6. Very long URL
+        if len(url) > 100:
+            signals.append(f'Unusually long URL ({len(url)} characters)')
+            risk += 10
+        elif len(url) > 75:
+            risk += 5
+
+        # 7. Hyphen-heavy domain
+        domain_part = hostname.split('.')[0] if hostname else ''
+        if domain_part.count('-') >= 2:
+            signals.append(f'Multiple hyphens in domain ({domain_part.count("-")} hyphens)')
+            risk += 15
+
+        # 8. Non-standard port
+        if parsed.port and parsed.port not in (80, 443, 8080):
+            signals.append(f'Non-standard port: {parsed.port}')
+            risk += 10
+
+        # 9. URL shortener
+        if hostname in URL_SHORTENERS:
+            signals.append(f'URL shortener detected ({hostname}) — hides real destination')
+            risk += 10
+
+        # 10. Suspicious TLD
+        for tld in SUSPICIOUS_TLDS:
+            if hostname.endswith(tld):
+                signals.append(f'High-risk TLD: {tld}')
+                risk += 12
+                break
+
+        # 11. No HTTPS
+        if parsed.scheme == 'http':
+            signals.append('No HTTPS — connection is not encrypted')
+            risk += 10
+
+        # 12. Double slashes in path (obfuscation)
+        if '//' in parsed.path:
+            signals.append('Double slashes in URL path (obfuscation attempt)')
+            risk += 8
+
+    except Exception as e:
+        print(f"⚠️ Heuristic error: {e}")
+
+    return {'risk': min(risk, 60), 'signals': signals}
+
+
+def check_domain_age(hostname: str) -> dict:
+    """Layer 2: WHOIS domain age check."""
+    if not WHOIS_AVAILABLE:
+        return {'risk': 0, 'signals': [], 'domain_age_days': None, 'registrar': None}
+
+    try:
+        # Strip www.
+        domain = hostname.replace('www.', '')
+        w = whois_lib.whois(domain)
+
+        creation = w.creation_date
+        if isinstance(creation, list):
+            creation = creation[0]
+
+        if not creation:
+            return {'risk': 5, 'signals': ['Domain registration date unknown'], 'domain_age_days': None, 'registrar': str(w.registrar or '')}
+
+        age_days = (datetime.now() - creation).days
+        registrar = str(w.registrar or 'Unknown')
+        risk = 0
+        signals = []
+
+        if age_days < 30:
+            signals.append(f'Domain is only {age_days} days old — very new, high risk')
+            risk = 40
+        elif age_days < 180:
+            signals.append(f'Domain is {age_days} days old — relatively new')
+            risk = 20
+        elif age_days < 365:
+            signals.append(f'Domain is {age_days} days old — less than 1 year')
+            risk = 10
+
+        return {'risk': risk, 'signals': signals, 'domain_age_days': age_days, 'registrar': registrar}
+
+    except Exception as e:
+        print(f"⚠️ WHOIS error for {hostname}: {e}")
+        return {'risk': 0, 'signals': [], 'domain_age_days': None, 'registrar': None}
+
+
+def check_ssl_certificate(hostname: str) -> dict:
+    """Layer 3: SSL certificate validity check."""
+    signals = []
+    risk = 0
+
+    try:
+        ctx = ssl.create_default_context()
+        with ctx.wrap_socket(socket.socket(), server_hostname=hostname) as s:
+            s.settimeout(5)
+            s.connect((hostname, 443))
+            cert = s.getpeercert()
+
+        # Check expiry
+        not_after = ssl.cert_time_to_seconds(cert['notAfter'])
+        days_left = (not_after - datetime.now().timestamp()) / 86400
+        issuer = dict(x[0] for x in cert.get('issuer', []))
+        org = issuer.get('organizationName', 'Unknown')
+
+        if days_left < 0:
+            signals.append('SSL certificate has EXPIRED')
+            risk += 25
+        elif days_left < 14:
+            signals.append(f'SSL certificate expires in {int(days_left)} days')
+            risk += 10
+
+        ssl_info = {'valid': True, 'issuer': org, 'days_remaining': int(days_left)}
+
+    except ssl.SSLCertVerificationError:
+        signals.append('SSL certificate is invalid or self-signed')
+        risk += 20
+        ssl_info = {'valid': False, 'issuer': None, 'days_remaining': None}
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        signals.append('No SSL/HTTPS — site does not support encrypted connections')
+        risk += 15
+        ssl_info = {'valid': False, 'issuer': None, 'days_remaining': None}
+    except Exception as e:
+        print(f"⚠️ SSL check error for {hostname}: {e}")
+        ssl_info = {'valid': None, 'issuer': None, 'days_remaining': None}
+
+    return {'risk': risk, 'signals': signals, 'ssl_info': ssl_info}
+
+
+def check_google_safe_browsing(url: str) -> dict:
+    """Layer 4: Google Safe Browsing API (free, optional)."""
+    gsb_key = os.getenv('GOOGLE_SAFE_BROWSING_KEY', '').strip()
+    if not gsb_key:
+        return {'risk': 0, 'signals': [], 'threat_type': None, 'checked': False}
+
+    try:
+        payload = {
+            'client': {'clientId': 'truthlens', 'clientVersion': '1.0'},
+            'threatInfo': {
+                'threatTypes': ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE', 'POTENTIALLY_HARMFUL_APPLICATION'],
+                'platformTypes': ['ANY_PLATFORM'],
+                'threatEntryTypes': ['URL'],
+                'threatEntries': [{'url': url}]
+            }
+        }
+        resp = http_requests.post(
+            f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={gsb_key}',
+            json=payload, timeout=5
+        )
+        data = resp.json()
+
+        if data.get('matches'):
+            threat = data['matches'][0].get('threatType', 'UNKNOWN')
+            threat_labels = {
+                'SOCIAL_ENGINEERING': 'Phishing / Social Engineering',
+                'MALWARE': 'Malware Distribution',
+                'UNWANTED_SOFTWARE': 'Unwanted Software',
+                'POTENTIALLY_HARMFUL_APPLICATION': 'Harmful Application'
+            }
+            label = threat_labels.get(threat, threat)
+            return {
+                'risk': 60,
+                'signals': [f'🚨 Google Safe Browsing: FLAGGED as {label}'],
+                'threat_type': label,
+                'checked': True
+            }
+
+        return {'risk': 0, 'signals': [], 'threat_type': None, 'checked': True}
+
+    except Exception as e:
+        print(f"⚠️ Safe Browsing API error: {e}")
+        return {'risk': 0, 'signals': [], 'threat_type': None, 'checked': False}
+
+
+def groq_phishing_summary(url: str, hostname: str, total_risk: int, all_signals: list, domain_age_days, ssl_info: dict) -> dict:
+    """Layer 5: Groq AI generates human-readable explanation and attack type."""
+    try:
+        signals_text = '\n'.join(f'- {s}' for s in all_signals) if all_signals else '- No specific signals detected'
+        age_text = f'{domain_age_days} days old' if domain_age_days is not None else 'unknown'
+        ssl_text = f"Valid (issued by {ssl_info.get('issuer', 'Unknown')})" if ssl_info.get('valid') else 'Invalid or missing'
+
+        prompt = f"""You are a cybersecurity expert analyzing a URL for phishing risk.
+
+URL: {url}
+Domain: {hostname}
+Risk Score: {total_risk}/100
+Domain Age: {age_text}
+SSL Certificate: {ssl_text}
+
+Detected Signals:
+{signals_text}
+
+Based on this analysis, provide:
+1. A concise 2-3 sentence explanation of why this URL is or isn't suspicious
+2. The most likely attack type if it IS suspicious (e.g. "Credential Harvesting", "Malware Distribution", "Advance Fee Scam", "Fake Login Page", "Safe Website")
+3. One specific recommendation for the user
+
+Return ONLY valid JSON (no markdown):
+{{
+  "explanation": "<2-3 sentence explanation>",
+  "attack_type": "<attack type or 'Appears Safe'>",
+  "recommendation": "<one actionable recommendation>"
+}}"""
+
+        raw = ask_groq(prompt)
+        if not raw:
+            return {'explanation': 'AI analysis unavailable.', 'attack_type': 'Unknown', 'recommendation': 'Exercise caution with this URL.'}
+
+        raw = re.sub(r'^```json\s*', '', raw)
+        raw = re.sub(r'^```\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+        result = json.loads(raw.strip())
+        return result
+
+    except Exception as e:
+        print(f"⚠️ Groq phishing summary error: {e}")
+        return {'explanation': 'AI analysis unavailable.', 'attack_type': 'Unknown', 'recommendation': 'Exercise caution with this URL.'}
+
+
+@app.route('/api/phishing', methods=['POST'])
+def phishing_check():
+    """
+    Phishing Link Detector endpoint.
+    Runs 5-layer analysis: heuristics → WHOIS → SSL → Safe Browsing → Groq AI
+    """
+    try:
+        data = request.get_json()
+        if not data or 'url' not in data:
+            return jsonify({'success': False, 'error': 'Missing url field'}), 400
+
+        raw_url = data['url'].strip()
+        if not raw_url:
+            return jsonify({'success': False, 'error': 'URL cannot be empty'}), 400
+
+        # Normalize URL
+        if not raw_url.startswith(('http://', 'https://')):
+            raw_url = 'https://' + raw_url
+
+        parsed = urlparse(raw_url)
+        hostname = parsed.hostname or ''
+
+        if not hostname:
+            return jsonify({'success': False, 'error': 'Invalid URL — could not extract hostname'}), 400
+
+        print(f"\n🎣 Phishing check: {raw_url}")
+
+        # ── Run all layers ──
+        print("  Layer 1: URL heuristics...")
+        heuristics = analyze_url_heuristics(raw_url)
+
+        print("  Layer 2: WHOIS domain age...")
+        whois_result = check_domain_age(hostname)
+
+        print("  Layer 3: SSL certificate...")
+        ssl_result = check_ssl_certificate(hostname)
+
+        print("  Layer 4: Google Safe Browsing...")
+        gsb_result = check_google_safe_browsing(raw_url)
+
+        # ── Aggregate risk score ──
+        total_risk = heuristics['risk'] + whois_result['risk'] + ssl_result['risk'] + gsb_result['risk']
+        total_risk = min(total_risk, 100)
+
+        all_signals = (
+            heuristics['signals'] +
+            whois_result['signals'] +
+            ssl_result['signals'] +
+            gsb_result['signals']
+        )
+
+        # ── Verdict ──
+        if total_risk >= 60:
+            verdict = 'DANGEROUS'
+        elif total_risk >= 30:
+            verdict = 'SUSPICIOUS'
+        else:
+            verdict = 'SAFE'
+
+        print(f"  Layer 5: Groq AI summary... (risk={total_risk}, verdict={verdict})")
+        ai_result = groq_phishing_summary(
+            raw_url, hostname, total_risk, all_signals,
+            whois_result.get('domain_age_days'),
+            ssl_result.get('ssl_info', {})
+        )
+
+        print(f"✅ Phishing check complete: {verdict} ({total_risk}/100)")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'url': raw_url,
+                'hostname': hostname,
+                'risk_score': total_risk,
+                'verdict': verdict,
+                'signals': all_signals,
+                'layers': {
+                    'heuristics': {'risk': heuristics['risk'], 'signals': heuristics['signals']},
+                    'whois': {
+                        'risk': whois_result['risk'],
+                        'signals': whois_result['signals'],
+                        'domain_age_days': whois_result.get('domain_age_days'),
+                        'registrar': whois_result.get('registrar'),
+                    },
+                    'ssl': {
+                        'risk': ssl_result['risk'],
+                        'signals': ssl_result['signals'],
+                        'info': ssl_result.get('ssl_info', {}),
+                    },
+                    'safe_browsing': {
+                        'risk': gsb_result['risk'],
+                        'signals': gsb_result['signals'],
+                        'threat_type': gsb_result.get('threat_type'),
+                        'checked': gsb_result.get('checked', False),
+                    },
+                },
+                'ai_analysis': ai_result,
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        print(f"❌ Phishing endpoint error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error. Please try again.'}), 500
+
+
+
+# ============================================
+# FAKE IMAGE DETECTOR
+# ============================================
+
+import io
+import base64
+import struct
+
+try:
+    from PIL import Image, ExifTags, UnidentifiedImageError
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("⚠️  Pillow not installed — image analysis disabled")
+
+# AI-generation software signatures found in EXIF
+AI_SOFTWARE_SIGNATURES = [
+    'dall-e', 'midjourney', 'stable diffusion', 'firefly', 'imagen',
+    'nightcafe', 'artbreeder', 'craiyon', 'wombo', 'canva ai',
+    'adobe firefly', 'bing image creator', 'ideogram', 'leonardo',
+]
+
+ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def extract_exif(img: 'Image.Image') -> dict:
+    """Extract and decode EXIF metadata from a PIL image."""
+    exif_data = {
+        'has_exif': False,
+        'camera_make': None,
+        'camera_model': None,
+        'software': None,
+        'date_taken': None,
+        'gps': False,
+        'ai_software_detected': None,
+    }
+
+    try:
+        raw_exif = img._getexif()
+        if not raw_exif:
+            return exif_data
+
+        exif_data['has_exif'] = True
+        tag_map = {v: k for k, v in ExifTags.TAGS.items()}
+
+        def get(name):
+            tag_id = tag_map.get(name)
+            return raw_exif.get(tag_id) if tag_id else None
+
+        exif_data['camera_make']  = str(get('Make') or '').strip() or None
+        exif_data['camera_model'] = str(get('Model') or '').strip() or None
+        exif_data['software']     = str(get('Software') or '').strip() or None
+        exif_data['date_taken']   = str(get('DateTimeOriginal') or get('DateTime') or '').strip() or None
+
+        # GPS check
+        gps_tag = tag_map.get('GPSInfo')
+        if gps_tag and raw_exif.get(gps_tag):
+            exif_data['gps'] = True
+
+        # AI software detection
+        sw = (exif_data['software'] or '').lower()
+        for sig in AI_SOFTWARE_SIGNATURES:
+            if sig in sw:
+                exif_data['ai_software_detected'] = exif_data['software']
+                break
+
+    except Exception as e:
+        print(f"⚠️ EXIF extraction error: {e}")
+
+    return exif_data
+
+
+def analyze_image_stats(img: 'Image.Image') -> dict:
+    """Layer 2: Statistical image analysis for AI-generation signals."""
+    signals = []
+    risk_points = 0
+
+    try:
+        w, h = img.size
+
+        # 1. Exact power-of-2 dimensions (common for AI images)
+        def is_pow2(n): return n > 0 and (n & (n - 1)) == 0
+        if is_pow2(w) and is_pow2(h):
+            signals.append(f'Dimensions are exact powers of 2 ({w}×{h}) — common for AI-generated images')
+            risk_points += 15
+
+        # 2. Perfect square dimensions
+        if w == h and is_pow2(w):
+            risk_points += 5  # extra for perfect square power-of-2
+
+        # 3. Convert to RGB for analysis
+        rgb = img.convert('RGB')
+
+        # 4. Color histogram uniformity — AI images tend to be smoother
+        hist = rgb.histogram()  # 256*3 values
+        r_hist = hist[:256]
+        g_hist = hist[256:512]
+        b_hist = hist[512:]
+
+        def hist_variance(h):
+            total = sum(h)
+            if total == 0: return 0
+            mean = total / 256
+            return sum((x - mean) ** 2 for x in h) / 256
+
+        avg_var = (hist_variance(r_hist) + hist_variance(g_hist) + hist_variance(b_hist)) / 3
+        # Very low variance = unnaturally smooth (AI), very high = normal photo
+        if avg_var < 5000:
+            signals.append('Unusually uniform color distribution — may indicate AI generation')
+            risk_points += 10
+
+        # 5. Image mode checks
+        if img.mode == 'RGBA':
+            signals.append('Image has transparency channel (RGBA) — common in AI-generated images')
+            risk_points += 8
+
+        # 6. File size vs dimensions ratio (AI images are often very clean/small)
+        pixel_count = w * h
+        # We can't get file size here easily, but flag very large images
+        if pixel_count > 4096 * 4096:
+            signals.append(f'Very high resolution ({w}×{h}) — may be AI upscaled')
+            risk_points += 5
+
+    except Exception as e:
+        print(f"⚠️ Image stats error: {e}")
+
+    return {'risk_points': min(risk_points, 30), 'signals': signals}
+
+
+def groq_vision_analysis(img_bytes: bytes, mime_type: str, exif: dict, stats: dict) -> dict:
+    """Layer 3: Groq Vision AI analysis of the image."""
+    client = get_groq_client()
+    if not client:
+        return {
+            'ai_probability': 50,
+            'verdict': 'UNCERTAIN',
+            'manipulation_type': 'Unknown',
+            'signals': ['AI analysis unavailable — no Groq API key'],
+            'explanation': 'Could not perform AI analysis.',
+            'recommendation': 'Check the image manually for signs of manipulation.',
+        }
+
+    try:
+        # Encode image as base64
+        b64 = base64.standard_b64encode(img_bytes).decode('utf-8')
+        data_url = f"data:{mime_type};base64,{b64}"
+
+        exif_context = []
+        if not exif['has_exif']:
+            exif_context.append('No EXIF metadata (suspicious — real cameras always embed EXIF)')
+        else:
+            if exif['camera_make']:
+                exif_context.append(f"Camera: {exif['camera_make']} {exif['camera_model'] or ''}")
+            if exif['software']:
+                exif_context.append(f"Software: {exif['software']}")
+            if exif['ai_software_detected']:
+                exif_context.append(f"⚠️ AI software detected in EXIF: {exif['ai_software_detected']}")
+            if exif['gps']:
+                exif_context.append('GPS coordinates present (suggests real photo)')
+        if stats['signals']:
+            exif_context.extend(stats['signals'])
+
+        context_text = '\n'.join(f'- {s}' for s in exif_context) if exif_context else '- No additional context'
+
+        prompt = f"""You are an expert digital forensics analyst specializing in detecting AI-generated and manipulated images.
+
+Analyze this image carefully and look for:
+1. Signs of AI generation: unnatural textures, impossible anatomy (especially hands/fingers/teeth), perfect symmetry, dreamlike quality, watermarks from AI tools, inconsistent lighting/shadows
+2. Signs of manipulation: cloning artifacts, splicing boundaries, inconsistent noise patterns, unnatural edges
+3. Signs it's a real photograph: natural imperfections, consistent lighting, realistic depth of field, natural noise
+
+Additional context from metadata analysis:
+{context_text}
+
+Provide your analysis as ONLY valid JSON (no markdown, no explanation outside JSON):
+{{
+  "ai_probability": <integer 0-100, where 100 = definitely AI generated>,
+  "manipulation_type": "<one of: AI Generated, Digitally Manipulated, Deepfake, Likely Real, Uncertain>",
+  "signals": ["<specific visual signal 1>", "<specific visual signal 2>", "<up to 5 signals>"],
+  "explanation": "<2-3 sentence expert explanation of your findings>",
+  "recommendation": "<one actionable recommendation for the user>"
+}}"""
+
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "text", "text": prompt}
+                ]
+            }],
+            temperature=0.2,
+            max_tokens=1024,
+        )
+
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r'^```json\s*', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'^```\s*', '', raw, flags=re.MULTILINE)
+        raw = re.sub(r'\s*```$', '', raw)
+        result = json.loads(raw.strip())
+
+        # Determine verdict from ai_probability
+        prob = int(result.get('ai_probability', 50))
+        if prob >= 66:
+            verdict = 'LIKELY_AI'
+        elif prob >= 31:
+            verdict = 'UNCERTAIN'
+        else:
+            verdict = 'LIKELY_REAL'
+
+        result['verdict'] = verdict
+        result['ai_probability'] = prob
+        return result
+
+    except Exception as e:
+        print(f"⚠️ Groq vision error: {e}")
+        return {
+            'ai_probability': 50,
+            'verdict': 'UNCERTAIN',
+            'manipulation_type': 'Unknown',
+            'signals': [f'AI analysis error: {str(e)[:80]}'],
+            'explanation': 'Could not complete AI analysis.',
+            'recommendation': 'Try again or inspect the image manually.',
+        }
+
+
+@app.route('/api/image', methods=['POST'])
+def image_check():
+    """
+    Fake Image Detector endpoint.
+    Accepts multipart/form-data with 'image' file field,
+    OR JSON with 'image_url' field.
+    """
+    if not PIL_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Image analysis unavailable — Pillow not installed.'}), 500
+
+    try:
+        img_bytes = None
+        mime_type = 'image/jpeg'
+        source_name = 'uploaded image'
+
+        # ── Mode A: File upload ──
+        if 'image' in request.files:
+            file = request.files['image']
+            if not file or file.filename == '':
+                return jsonify({'success': False, 'error': 'No file selected.'}), 400
+
+            mime_type = file.content_type or 'image/jpeg'
+            if mime_type not in ALLOWED_IMAGE_TYPES:
+                return jsonify({'success': False, 'error': f'Unsupported file type: {mime_type}. Use JPEG, PNG, WebP, or GIF.'}), 400
+
+            img_bytes = file.read()
+            source_name = file.filename
+            if len(img_bytes) > MAX_IMAGE_SIZE:
+                return jsonify({'success': False, 'error': 'Image too large. Maximum size is 10 MB.'}), 400
+
+        # ── Mode B: Image URL ──
+        elif request.is_json and request.json.get('image_url'):
+            image_url = request.json['image_url'].strip()
+            print(f"\n🖼️ Fetching image from URL: {image_url}")
+            resp = http_requests.get(image_url, timeout=10, stream=True)
+            resp.raise_for_status()
+            mime_type = resp.headers.get('Content-Type', 'image/jpeg').split(';')[0].strip()
+            img_bytes = resp.content
+            source_name = image_url
+            if len(img_bytes) > MAX_IMAGE_SIZE:
+                return jsonify({'success': False, 'error': 'Image too large. Maximum size is 10 MB.'}), 400
+
+        else:
+            return jsonify({'success': False, 'error': 'Provide an image file (multipart) or image_url (JSON).'}), 400
+
+        print(f"\n🖼️ Image analysis: {source_name} ({len(img_bytes)//1024} KB, {mime_type})")
+
+        # ── Open with Pillow ──
+        try:
+            img = Image.open(io.BytesIO(img_bytes))
+            img.verify()  # Check integrity
+            img = Image.open(io.BytesIO(img_bytes))  # Re-open after verify
+        except UnidentifiedImageError:
+            return jsonify({'success': False, 'error': 'Could not read image. Make sure it is a valid image file.'}), 400
+
+        w, h = img.size
+        mode = img.mode
+
+        # ── Layer 1: EXIF ──
+        print("  Layer 1: EXIF metadata...")
+        exif = extract_exif(img)
+
+        # ── Layer 2: Image stats ──
+        print("  Layer 2: Image statistics...")
+        stats = analyze_image_stats(img)
+
+        # ── Layer 3: Groq Vision ──
+        print("  Layer 3: Groq Vision AI...")
+        # Resize for API if too large (keep under ~1MB encoded)
+        if len(img_bytes) > 800_000:
+            img_resized = img.convert('RGB')
+            buf = io.BytesIO()
+            img_resized.thumbnail((1024, 1024), Image.LANCZOS)
+            img_resized.save(buf, format='JPEG', quality=85)
+            img_bytes_for_api = buf.getvalue()
+            mime_type_for_api = 'image/jpeg'
+        else:
+            img_bytes_for_api = img_bytes
+            mime_type_for_api = mime_type
+
+        ai_result = groq_vision_analysis(img_bytes_for_api, mime_type_for_api, exif, stats)
+
+        # ── Build EXIF signals ──
+        exif_signals = []
+        if not exif['has_exif']:
+            exif_signals.append('No EXIF metadata found — AI-generated images typically lack EXIF')
+        else:
+            if exif['ai_software_detected']:
+                exif_signals.append(f'AI software in EXIF: {exif["ai_software_detected"]}')
+            if exif['camera_make']:
+                exif_signals.append(f'Camera: {exif["camera_make"]} {exif["camera_model"] or ""}')
+            if exif['gps']:
+                exif_signals.append('GPS location data present')
+
+        all_signals = exif_signals + stats['signals'] + (ai_result.get('signals') or [])
+
+        print(f"✅ Image check complete: {ai_result['verdict']} ({ai_result['ai_probability']}% AI probability)")
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'source': source_name,
+                'dimensions': {'width': w, 'height': h},
+                'mode': mode,
+                'file_size_kb': len(img_bytes) // 1024,
+                'ai_probability': ai_result['ai_probability'],
+                'verdict': ai_result['verdict'],
+                'manipulation_type': ai_result.get('manipulation_type', 'Unknown'),
+                'signals': all_signals,
+                'exif': exif,
+                'ai_analysis': {
+                    'explanation': ai_result.get('explanation', ''),
+                    'recommendation': ai_result.get('recommendation', ''),
+                },
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+
+    except http_requests.RequestException as e:
+        return jsonify({'success': False, 'error': f'Could not fetch image URL: {str(e)}'}), 400
+    except Exception as e:
+        print(f"❌ Image endpoint error: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': 'Internal server error. Please try again.'}), 500
+
+
+
+# ============================================
+# DEEPFAKE AUDIO DETECTOR
+# ============================================
+
+import tempfile
+import uuid
+import numpy as np
+
+try:
+    import librosa
+    import soundfile as sf
+    AUDIO_AVAILABLE = True
+except ImportError:
+    AUDIO_AVAILABLE = False
+    print("⚠️  Librosa/Soundfile not installed — audio analysis disabled")
+
+def analyze_audio_signal(file_path):
+    """Layer 1: Acoustic Forensics using Librosa."""
+    signals = []
+    risk_score = 0
+    
+    try:
+        y, sr = librosa.load(file_path, sr=None)  # Load native SR
+        duration = librosa.get_duration(y=y, sr=sr)
+        
+        # 1. Silence Analysis (Digital Silence)
+        # Deepfakes sometimes have "perfect zero" silence between words.
+        # Real mics have background noise.
+        # Check percentage of samples that are EXACTLY zero.
+        zero_samples = np.sum(y == 0)
+        total_samples = len(y)
+        zero_ratio = zero_samples / total_samples
+        
+        if zero_ratio > 0.1: # If >10% of audio is digital zero
+            signals.append("Contains 'perfect digital silence' (unnatural for real recordings)")
+            risk_score += 20
+        
+        # 2. Spectral Rolloff (Frequency Cutoff)
+        # Many TTS models generate up to 22kHz or 24kHz. Telephony is 8kHz.
+        # We check where 99% of energy is concentrated.
+        rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.99)
+        mean_rolloff = np.mean(rolloff)
+        
+        if mean_rolloff < 8500: # Cutoff around 8kHz
+            signals.append("Low-frequency cutoff (~8kHz) — possible telephony or low-quality upsampling")
+            risk_score += 10
+        elif mean_rolloff > 22000 and sr > 44100:
+            # Suspiciously high fidelity? Not necessarily bad.
+            pass
+            
+        # 3. Pitch Volatility (Micro-tremors)
+        # AI can be 'too stable'. Real voices have jitter.
+        # Approximate using zero-crossing rate variance
+        zcr = librosa.feature.zero_crossing_rate(y)
+        zcr_var = np.var(zcr)
+        
+        if zcr_var < 0.0005: 
+            signals.append("Unnatural pitch stability (lack of micro-tremors)")
+            risk_score += 15
+            
+        return {
+            "signals": signals, 
+            "acoustic_risk": risk_score, 
+            "duration": duration
+        }
+        
+    except Exception as e:
+        print(f"⚠️ Audio analysis error: {e}")
+        return {"signals": [f"Signal analysis failed: {str(e)}"], "acoustic_risk": 0, "duration": 0}
+
+@app.route('/api/audio', methods=['POST'])
+def audio_check():
+    """
+    Deepfake Audio Detector endpoint.
+    Accepts multipart/form-data with 'audio' file field.
+    """
+    if not AUDIO_AVAILABLE:
+        return jsonify({'success': False, 'error': 'Audio analysis unavailable — Librosa not installed.'}), 500
+        
+    if 'audio' not in request.files:
+        return jsonify({'success': False, 'error': 'No audio file uploaded.'}), 400
+        
+    file = request.files['audio']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected.'}), 400
+        
+    # Save to temp file for Librosa analysis
+    temp_filename = f"temp_{uuid.uuid4().hex}.wav" 
+    temp_path = os.path.join(tempfile.gettempdir(), temp_filename)
+    
+    try:
+        file.save(temp_path)
+        
+        # ── Layer 1: Acoustic Analysis ──
+        print(f"🎙️ Analyzing audio signal: {file.filename}")
+        acoustic = analyze_audio_signal(temp_path)
+        
+        # ── Layer 2: Transcription (Groq Whisper) ──
+        print("🎙️ Transcribing with Groq Whisper...")
+        client = get_groq_client()
+        transcript_text = ""
+        
+        if client:
+            with open(temp_path, "rb") as f:
+                transcription = client.audio.transcriptions.create(
+                    file=(temp_filename, f.read()),
+                    model="distil-whisper-large-v3-en",
+                    response_format="json",
+                    language="en",
+                    temperature=0.0
+                )
+                transcript_text = transcription.text
+        else:
+            transcript_text = "(Transcription unavailable - No API Key)"
+            
+        # ── Layer 3: Content Intent Analysis (Groq Llama) ──
+        content_risk = 0
+        ai_verdict = "UNCERTAIN"
+        explanation = "Could not analyze content."
+        
+        if client and transcript_text:
+            print("🎙️ Analyzing intent with Llama...")
+            prompt = f"""Analyze this audio transcript for indicators of deepfake scams or social engineering.
+Transcript: "{transcript_text}"
+
+Look for:
+1. Urgency ("Do this now", "I'm in trouble")
+2. Financial demands ("Wire money", "Gift cards", "Bank transfer")
+3. Authority impersonation ("This is the IRS", "This is the Police", "This is the CEO")
+4. Grandparent scam patterns ("I'm in jail", "Don't tell mom")
+
+Return JSON:
+{{
+  "scam_likelihood": <0-100>,
+  "verdict": "<LIKELY_FAKE, UNCERTAIN, LIKELY_REAL>",
+  "explanation": "<Short explanation>",
+  "signals": ["<Signal 1>", "<Signal 2>"]
+}}"""
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
+            analysis = json.loads(completion.choices[0].message.content)
+            content_risk = analysis.get("scam_likelihood", 0)
+            ai_verdict = analysis.get("verdict", "UNCERTAIN")
+            explanation = analysis.get("explanation", "")
+            if analysis.get("signals"):
+                acoustic['signals'].extend(analysis['signals'])
+        
+        # ── Final Verdict Logic ──
+        total_risk = max(acoustic['acoustic_risk'], content_risk)
+        
+        # If acoustic signals are strong, override Llama's "soft" verdict
+        if acoustic['acoustic_risk'] > 40:
+            ai_verdict = "LIKELY_FAKE"
+            explanation += " Acoustic analysis detected synthetic artifacts."
+            
+        final_verdict = ai_verdict
+        if total_risk < 20 and final_verdict == "UNCERTAIN":
+            final_verdict = "LIKELY_REAL"
+
+        # Cleanup
+        try:
+            os.remove(temp_path)
+        except:
+            pass
+            
+        return jsonify({
+            'success': True,
+            'data': {
+                'file_name': file.filename,
+                'duration_seconds': round(acoustic['duration'], 2),
+                'ai_probability': total_risk,
+                'verdict': final_verdict,
+                'analysis_type': 'Hybrid (Acoustic + Content)',
+                'signals': acoustic['signals'],
+                'transcript': transcript_text,
+                'explanation': explanation
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Audio endpoint error: {e}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'success': False, 'error': f"Processing failed: {str(e)}"}), 500
+
+# ============================================
 # START SERVER
 # ============================================
 
