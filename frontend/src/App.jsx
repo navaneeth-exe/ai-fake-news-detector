@@ -211,12 +211,12 @@ export default function App() {
               {/* Left: Input */}
               <InputPanel onVerify={handleVerify} loading={loading} />
 
-              {/* Right: Results */}
+                {/* Right: Results */}
               <div className="flex flex-col gap-4">
                 <AnimatePresence mode="wait">
                   {loading && (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <LoadingCard urlMode={false} />
+                      <LoadingCard type="image" />
                     </motion.div>
                   )}
 
@@ -305,7 +305,7 @@ export default function App() {
                 <AnimatePresence mode="wait">
                   {phishingLoading && (
                     <motion.div key="p-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <LoadingCard urlMode={true} />
+                      <LoadingCard type="phishing" />
                     </motion.div>
                   )}
                   {!phishingLoading && phishingError && (
@@ -357,7 +357,7 @@ export default function App() {
                 <AnimatePresence mode="wait">
                   {imageLoading && (
                     <motion.div key="i-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <LoadingCard urlMode={false} />
+                      <LoadingCard type="image" />
                     </motion.div>
                   )}
                   {!imageLoading && imageError && (
@@ -409,7 +409,7 @@ export default function App() {
                 <AnimatePresence mode="wait">
                   {audioLoading && (
                     <motion.div key="a-loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <LoadingCard urlMode={false} />
+                      <LoadingCard type="audio" />
                     </motion.div>
                   )}
                   {!audioLoading && audioError && (

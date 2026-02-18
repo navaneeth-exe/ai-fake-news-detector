@@ -21,13 +21,14 @@
 ### 🕵️ **Multi-Modal Verification**
 
 1.  **📝 Text Analysis**: Fact-checks claims using real-time web evidence (SerpAPI).
-2.  **🌐 URL Scanner**: Detects phishing, bias, and clickbait in news articles.
+2.  **🌐 URL Scanner**: Detects phishing, bias, and clickbait using **Google Safe Browsing** and heuristic analysis.
 3.  **🖼️ Image Forensics**: Analyzes noise patterns and metadata to detect AI generation (Deepfakes).
 4.  **🎙️ Audio Analysis**: Identifies synthetic voices and robotic artifacts in audio clips.
 
 ### 🎨 **Immersive UI Experience**
 
 - **Neural Network Grid**: A living background that adapts to your theme and reacts to your mouse.
+- **Context-Aware Loading**: Dynamic visuals that change based on whether you're scanning audio, images, or text.
 - **Theme Switcher**: 4 Distinct Personalities (Cosmic, Eco, Ember, Corporate).
 - **Social Sharing**: Generate beautiful, shareable cards of your verification results instantly.
 
@@ -60,15 +61,16 @@ For media files (Images/Audio), we use dedicated analysis pipelines:
 
 ## 🛠️ Tech Stack
 
-| Layer               | Technology          | Purpose                             |
-| :------------------ | :------------------ | :---------------------------------- |
-| **Frontend**        | **React 18 + Vite** | High-performance reactive UI        |
-| **Styling**         | **TailwindCSS**     | Utility-first styling system        |
-| **Animation**       | **Framer Motion**   | Smooth layout transitions & effects |
-| **Visuals**         | **Canvas API**      | Neural Grid & Particle systems      |
-| **Backend**         | **Python Flask**    | REST API & orchestration            |
-| **AI Intelligence** | **Groq (Llama 3)**  | Context analysis & reasoning        |
-| **Web Search**      | **SerpAPI**         | Real-time fact retrieval            |
+| Layer               | Technology               | Purpose                             |
+| :------------------ | :----------------------- | :---------------------------------- |
+| **Frontend**        | **React 18 + Vite**      | High-performance reactive UI        |
+| **Styling**         | **TailwindCSS**          | Utility-first styling system        |
+| **Animation**       | **Framer Motion**        | Smooth layout transitions & effects |
+| **Visuals**         | **Canvas API**           | Neural Grid & Particle systems      |
+| **Backend**         | **Python Flask**         | REST API & orchestration            |
+| **AI Intelligence** | **Groq (Llama 3)**       | Context analysis & reasoning        |
+| **Web Search**      | **SerpAPI**              | Real-time fact retrieval            |
+| **Security**        | **Google Safe Browsing** | Phishing & Malware detection        |
 
 ---
 

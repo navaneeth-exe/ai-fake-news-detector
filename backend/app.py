@@ -37,9 +37,11 @@ limiter = Limiter(
 # ---- API KEYS ----
 GROQ_KEY = os.getenv('GROQ_API_KEY', '').strip()
 SERPAPI_KEY = os.getenv('SERPAPI_KEY', '').strip()
+SAFE_BROWSING_KEY = os.getenv('GOOGLE_SAFE_BROWSING_KEY', '').strip()
 
 print(f"GROQ_KEY loaded: {'Yes (' + GROQ_KEY[:8] + '...)' if GROQ_KEY else 'No'}")
 print(f"SERPAPI_KEY loaded: {'Yes (' + SERPAPI_KEY[:8] + '...)' if SERPAPI_KEY else 'No'}")
+print(f"SAFE_BROWSING_KEY loaded: {'Yes (' + SAFE_BROWSING_KEY[:8] + '...)' if SAFE_BROWSING_KEY else 'No'}")
 
 
 # ============================================
@@ -828,62 +830,68 @@ def check_ssl_certificate(hostname: str) -> dict:
 
     try:
         ctx = ssl.create_default_context()
-        with ctx.wrap_socket(socket.socket(), server_hostname=hostname) as s:
-            s.settimeout(5)
-            s.connect((hostname, 443))
-            cert = s.getpeercert()
+        with socket.create_connection((hostname, 443), timeout=5) as sock:
+            with ctx.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+                # Check expiration
+                not_after = datetime.strptime(cert['notAfter'], r'%b %d %H:%M:%S %Y %Z')
+                days_left = (not_after - datetime.utcnow()).days
+                
+                if days_left < 7:
+                    signals.append(f'SSL certificate expires in {days_left} days')
+                    risk += 20
+                elif days_left < 30:
+                    signals.append(f'SSL certificate expires soon ({days_left} days)')
+                    risk += 10
+                    
+                # Check issuer (self-signed often missing issuer info or specific fields)
+                issuer = dict(x[0] for x in cert['issuer'])
+                organization = issuer.get('organizationName', 'Unknown')
+                if 'Let\'s Encrypt' in organization:
+                    # Let's Encrypt is valid but commonly used by phishers for free SSL
+                    # Not a signal on its own, but good context
+                    pass
 
-        # Check expiry
-        not_after = ssl.cert_time_to_seconds(cert['notAfter'])
-        days_left = (not_after - datetime.now().timestamp()) / 86400
-        issuer = dict(x[0] for x in cert.get('issuer', []))
-        org = issuer.get('organizationName', 'Unknown')
-
-        if days_left < 0:
-            signals.append('SSL certificate has EXPIRED')
-            risk += 25
-        elif days_left < 14:
-            signals.append(f'SSL certificate expires in {int(days_left)} days')
-            risk += 10
-
-        ssl_info = {'valid': True, 'issuer': org, 'days_remaining': int(days_left)}
-
-    except ssl.SSLCertVerificationError:
+    except ssl.SSLError:
         signals.append('SSL certificate is invalid or self-signed')
-        risk += 20
-        ssl_info = {'valid': False, 'issuer': None, 'days_remaining': None}
-    except (socket.timeout, ConnectionRefusedError, OSError):
-        signals.append('No SSL/HTTPS — site does not support encrypted connections')
-        risk += 15
-        ssl_info = {'valid': False, 'issuer': None, 'days_remaining': None}
+        risk += 40
+    except socket.timeout:
+        # Don't penalize for timeout, just skip
+        pass
     except Exception as e:
-        print(f"⚠️ SSL check error for {hostname}: {e}")
-        ssl_info = {'valid': None, 'issuer': None, 'days_remaining': None}
+        # Connection refused or other error
+        signals.append('HTTPS connection failed')
+        risk += 10
 
-    return {'risk': risk, 'signals': signals, 'ssl_info': ssl_info}
+    return {'risk': risk, 'signals': signals}
 
 
 def check_google_safe_browsing(url: str) -> dict:
-    """Layer 4: Google Safe Browsing API (free, optional)."""
-    gsb_key = os.getenv('GOOGLE_SAFE_BROWSING_KEY', '').strip()
-    if not gsb_key:
-        return {'risk': 0, 'signals': [], 'threat_type': None, 'checked': False}
+    """Layer 4: Google Safe Browsing API check."""
+    key = os.getenv('GOOGLE_SAFE_BROWSING_KEY', '').strip()
+    if not key:
+        return {'risk': 0, 'signals': []}
 
     try:
+        endpoint = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={key}"
         payload = {
-            'client': {'clientId': 'truthlens', 'clientVersion': '1.0'},
-            'threatInfo': {
-                'threatTypes': ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE', 'POTENTIALLY_HARMFUL_APPLICATION'],
-                'platformTypes': ['ANY_PLATFORM'],
-                'threatEntryTypes': ['URL'],
-                'threatEntries': [{'url': url}]
+            "client": {
+                "clientId": "truthlens-api",
+                "clientVersion": "1.0.0"
+            },
+            "threatInfo": {
+                "threatTypes": ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
+                "platformTypes": ["ANY_PLATFORM"],
+                "threatEntryTypes": ["URL"],
+                "threatEntries": [{"url": url}]
             }
         }
-        resp = http_requests.post(
+        
+        response = requests.post(
             f'https://safebrowsing.googleapis.com/v4/threatMatches:find?key={gsb_key}',
             json=payload, timeout=5
         )
-        data = resp.json()
+        data = response.json()
 
         if data.get('matches'):
             threat = data['matches'][0].get('threatType', 'UNKNOWN')
@@ -895,7 +903,7 @@ def check_google_safe_browsing(url: str) -> dict:
             }
             label = threat_labels.get(threat, threat)
             return {
-                'risk': 60,
+                'risk': 100,
                 'signals': [f'🚨 Google Safe Browsing: FLAGGED as {label}'],
                 'threat_type': label,
                 'checked': True
@@ -994,14 +1002,18 @@ def phishing_check():
         gsb_result = check_google_safe_browsing(raw_url)
 
         # ── Aggregate risk score ──
-        total_risk = heuristics['risk'] + whois_result['risk'] + ssl_result['risk'] + gsb_result['risk']
-        total_risk = min(total_risk, 100)
+        # If Google flags it, instant 100 risk.
+        if gsb_result['risk'] >= 100:
+            total_risk = 100
+        else:
+            total_risk = heuristics['risk'] + whois_result['risk'] + ssl_result['risk']
+            total_risk = min(total_risk, 100)
 
         all_signals = (
+            gsb_result['signals'] +  # Put Google alerts first
             heuristics['signals'] +
             whois_result['signals'] +
-            ssl_result['signals'] +
-            gsb_result['signals']
+            ssl_result['signals']
         )
 
         # ── Verdict ──
