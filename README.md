@@ -4,9 +4,15 @@
 
 ![React](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?logo=react&logoColor=black)
 ![Tailwind](https://img.shields.io/badge/Styling-TailwindCSS-38B2AC?logo=tailwind-css&logoColor=white)
-![Framer Motion](https://img.shields.io/badge/Motion-Framer-0055FF?logo=framer&logoColor=white)
 ![Python](https://img.shields.io/badge/Backend-Flask-000000?logo=flask&logoColor=white)
-![Groq](https://img.shields.io/badge/AI-Groq%20Llama%203-f55036)
+![AI](https://img.shields.io/badge/AI-Groq%20Llama%203-f55036?logo=openai&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+---
+
+## 🚀 Live Demo
+
+**[Deploy your own instance on Render](#-deployment)**
 
 ---
 
@@ -28,12 +34,14 @@
 ### 🎨 **Immersive UI Experience**
 
 - **Neural Network Grid**: A living background that adapts to your theme and reacts to your mouse.
-- **Theme Switcher**: 4 Distinct Personalities:
-  - **☄️ Cosmic** (Default Dark/Purple)
-  - **🌿 Eco** (Nature/Green)
-  - **🔥 Ember** (High Contrast/Red)
-  - **🏢 Corporate** (Professional Light/Blue)
+- **Theme Switcher**: 4 Distinct Personalities (Cosmic, Eco, Ember, Corporate).
 - **Social Sharing**: Generate beautiful, shareable cards of your verification results instantly.
+
+### 🛡️ **Production Ready**
+
+- **Rate Limiting**: Built-in protection against API abuse.
+- **Security**: Hardened HTTP headers and CORS policies.
+- **Docker/Render Ready**: Configured for one-click deployment.
 
 ---
 
@@ -48,11 +56,28 @@
 | **Backend**         | **Python Flask**    | REST API & orchestration            |
 | **AI Intelligence** | **Groq (Llama 3)**  | Context analysis & reasoning        |
 | **Web Search**      | **SerpAPI**         | Real-time fact retrieval            |
-| **Scraping**        | **BeautifulSoup**   | Article content extraction          |
 
 ---
 
-## 🚀 Quick Start
+## ☁️ Deployment
+
+### Free Deployment on Render.com
+
+This project is configured for **free hosting** on Render (Frontend + Backend in one service).
+
+1.  **Fork this repository** to your GitHub.
+2.  Sign up at [render.com](https://render.com).
+3.  Create a **New Web Service** and connect your repo.
+4.  **Settings**:
+    - **Build Command**: `cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt`
+    - **Start Command**: `cd backend && gunicorn app:app -c gunicorn_config.py`
+    - **Environment Variables**: Add `GROQ_API_KEY`, `SERPAPI_KEY`, and `FLASK_ENV=production`.
+
+👉 **[Read the Full Deployment Guide](DEPLOYMENT_GUIDE.md)**
+
+---
+
+## 🚀 Local Development
 
 ### Prerequisites
 
@@ -62,36 +87,31 @@
 
 ### Installation
 
-#### 1. Backend Setup (Flask)
+#### 1. Backend Setup
 
 ```bash
-git clone https://github.com/navaneeth-exe/ai-fake-news-detector.git
-cd ai-fake-news-detector/backend
+git clone https://github.com/navaneeth-exe/TruthLens.git
+cd TruthLens/backend
 
-# Create virtual env
+# Create virtual env & Install deps
 python -m venv venv
-# Activate: venv\Scripts\activate (Windows) or source venv/bin/activate (Mac/Linux)
-
-# Install deps
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 pip install -r requirements.txt
 
 # Configure Environment
 cp .env.example .env
-# Add your GROQ_API_KEY and SERPAPI_KEY in .env
+# Add keys to .env
 
 # Run Server
 python app.py
 ```
 
-#### 2. Frontend Setup (React)
+#### 2. Frontend Setup
 
 ```bash
 cd ../frontend
-
-# Install dependencies
 npm install
-
-# Run Development Server
 npm run dev
 ```
 
@@ -102,22 +122,22 @@ Open `http://localhost:5173` to launch TruthLens.
 ## 🏗️ Project Structure
 
 ```
-ai-news-detector/
+TruthLens/
 ├── backend/                # Python Flask API
 │   ├── app.py              # Main application logic
-│   ├── requirements.txt    # Backend dependencies
-│   └── .env                # Secrets
+│   ├── requirements.txt    # Dependencies
+│   ├── gunicorn_config.py  # Production server config
+│   └── Procfile            # Deployment command
 │
 ├── frontend/               # React + Vite Application
 │   ├── src/
-│   │   ├── components/     # UI Components (Dashboard, Results, Inputs)
-│   │   ├── hooks/          # Custom Hooks (useTheme, useHistory)
+│   │   ├── components/     # UI Components
+│   │   ├── hooks/          # Custom Hooks
 │   │   ├── lib/            # API utilities
-│   │   ├── index.css       # Tailwind & Theme Variables
-│   │   └── App.jsx         # Main Router & Layout
+│   │   └── App.jsx         # Main Router
 │   └── vite.config.js      # Bundler config
 │
-└── README.md               # You are here
+└── DEPLOYMENT_GUIDE.md     # Hosting instructions
 ```
 
 ---
