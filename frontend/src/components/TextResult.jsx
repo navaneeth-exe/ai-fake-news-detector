@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import VerdictBadge from './VerdictBadge';
 import ScoreRing from './ScoreRing';
 import SourcesList from './SourcesList';
+import ShareCard from './ShareCard';
 
 const container = {
   hidden: {},
@@ -16,12 +18,9 @@ const section = {
 
 export default function TextResult({ data, onShare }) {
   const { verdict, score, explanation, verified_context, sources = [], keywords = [] } = data;
+  const [showShare, setShowShare] = useState(false);
 
-  const handleShare = () => {
-    const text = `TruthLens Verdict: ${verdict} (${score}/100)\n\n${explanation}\n\nVerified by TruthLens AI`;
-    navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard!'));
-    onShare?.();
-  };
+  // Removed handleShare function as it's replaced by the modal logic
 
   return (
     <motion.div
@@ -83,7 +82,7 @@ export default function TextResult({ data, onShare }) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={handleShare}
+          onClick={() => setShowShare(true)}
           className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl"
           style={{
             background: 'var(--bg-glass)',
@@ -96,6 +95,12 @@ export default function TextResult({ data, onShare }) {
           Share Result
         </motion.button>
       </motion.div>
+
+      <ShareCard 
+        isOpen={showShare} 
+        onClose={() => setShowShare(false)} 
+        data={data}
+      />
     </motion.div>
   );
 }

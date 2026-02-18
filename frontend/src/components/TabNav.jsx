@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 
 const TABS = [
-  { id: 'news',     label: 'Fake News',        icon: '📰', ready: true },
+  { id: 'home',     label: 'Dashboard',         icon: '🏠', ready: true },
+  { id: 'news',     label: 'Fake News',         icon: '📰', ready: true },
   { id: 'phishing', label: 'Phishing Detector', icon: '🎣', ready: true },
   { id: 'image',    label: 'Fake Image',        icon: '🖼️', ready: true },
   { id: 'audio',    label: 'Deepfake Audio',    icon: '🎙️', ready: true },

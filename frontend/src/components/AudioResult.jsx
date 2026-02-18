@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic2, FileText, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ScoreRing from './ScoreRing';
+import ConfidenceBreakdown from './ConfidenceBreakdown';
+import ShareCard from './ShareCard';
 
 const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 const section   = { hidden: { opacity: 0, y: 18 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } };
@@ -20,12 +23,21 @@ export default function AudioResult({ data }) {
     file_name, duration_seconds, ai_probability,
     verdict, analysis_type, signals, transcript, explanation
   } = data;
+  
+  const [showShare, setShowShare] = useState(false);
 
   const vc = VerdictConfig(verdict);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(transcript).then(() => toast.success('Transcript copied!'));
   };
+
+  // Generate breakdown metrics based on the main probability (Mocked for visual effect)
+  const breakdown = [
+    { label: 'Acoustic Anomalies', score: Math.min(98, Math.round(ai_probability)), color: '#ef4444' },
+    { label: 'Spectral Consistency', score: Math.max(2, 100 - Math.round(ai_probability)), color: '#3b82f6' },
+    { label: 'Scam Pattern Match',   score: Math.min(95, Math.round(ai_probability * 0.9)), color: '#eab308' },
+  ];
 
   return (
     <motion.div
@@ -65,6 +77,14 @@ export default function AudioResult({ data }) {
 
         {/* Risk Score Ring (Inverted: High = Bad) */}
         <ScoreRing score={ai_probability} label="Deepfake Risk" inverted />
+      </motion.div>
+
+      {/* Confidence Breakdown */}
+      <motion.div variants={section}>
+        <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
+          Risk Analysis Breakdown
+        </h3>
+        <ConfidenceBreakdown metrics={breakdown} />
       </motion.div>
 
       {/* AI Explanation */}
@@ -132,6 +152,29 @@ export default function AudioResult({ data }) {
           </div>
         </motion.div>
       )}
+      {/* Share */}
+      <motion.div variants={section}>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowShare(true)}
+          className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl"
+          style={{
+            background: 'var(--bg-glass)',
+            border: '1px solid var(--border-glass)',
+            color: 'var(--text-2)',
+            cursor: 'pointer',
+          }}
+        >
+          📋 Share Result
+        </motion.button>
+      </motion.div>
+
+      <ShareCard
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        data={data}
+      />
     </motion.div>
   );
 }

@@ -8,24 +8,44 @@ const HISTORY_KEY = 'truthlens-history';
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem(THEME_KEY);
-    if (saved) return saved;
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    return saved || 'cosmic'; // Default to cosmic (dark)
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    // Remove all previous theme classes
+    root.classList.remove('theme-cosmic', 'theme-eco', 'theme-ember', 'theme-corporate', 'dark', 'light');
+    
+    // Add new theme class
+    root.classList.add(`theme-${theme}`);
+    
+    // For backward compatibility or Tailwind dark mode if using 'class' strategy
+    if (['cosmic', 'ember'].includes(theme)) {
+        root.classList.add('dark');
     }
+
     localStorage.setItem(THEME_KEY, theme);
+    
+    // Update meta theme-color for mobile browsers
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = theme === 'dark' ? '#0a0a1a' : '#f0f2f5';
+    if (meta) {
+        const colors = {
+            'cosmic': '#0a0a1a',
+            'eco': '#064e3b',
+            'ember': '#450a0a',
+            'corporate': '#f8fafc'
+        };
+        meta.content = colors[theme] || '#0a0a1a';
+    }
   }, [theme]);
 
-  const toggle = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
-  return { theme, toggle };
+  const changeTheme = (newTheme) => setTheme(newTheme);
+  
+  // Legacy toggle support (cycles through) - optional, but might break if components expect toggle()
+  // let's keep toggle for now but maybe just switch between cosmic and corporate?
+  const toggle = () => setTheme(t => t === 'cosmic' ? 'corporate' : 'cosmic');
+
+  return { theme, changeTheme, toggle };
 }
 
 // ── useHistory ────────────────────────────────────────────

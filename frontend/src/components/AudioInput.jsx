@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Mic, X, Play, Pause, ScanSearch } from 'lucide-react';
+import WaveformVisualizer from './WaveformVisualizer';
 
 export default function AudioInput({ onCheck, loading }) {
   const [file, setFile] = useState(null);
@@ -173,12 +174,14 @@ export default function AudioInput({ onCheck, loading }) {
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden relative">
+            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden relative mb-4">
               <div
                 className="h-full absolute top-0 left-0 bg-blue-500 transition-all duration-100"
                 style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
               />
             </div>
+            
+            <WaveformVisualizer isPlaying={isPlaying} />
 
             <audio
               ref={audioRef}

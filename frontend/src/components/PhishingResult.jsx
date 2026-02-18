@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, ShieldAlert, ShieldX, CheckCircle2, AlertTriangle, XCircle, Globe, Lock, Clock, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ScoreRing from './ScoreRing';
+import ConfidenceBreakdown from './ConfidenceBreakdown';
+import ShareCard from './ShareCard';
 
 const container = {
   hidden: {},
@@ -64,12 +67,16 @@ function LayerRow({ icon, label, risk, signals, checked }) {
 
 export default function PhishingResult({ data }) {
   const { url, hostname, risk_score, verdict, signals, layers, ai_analysis } = data;
+  const [showShare, setShowShare] = useState(false);
   const vc = VerdictConfig(verdict);
 
-  const handleShare = () => {
-    const text = `TruthLens Phishing Check\n${url}\n\nVerdict: ${verdict} (Risk: ${risk_score}/100)\n${ai_analysis?.explanation || ''}\n\nScanned by TruthLens AI`;
-    navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard!'));
-  };
+  // Removed handleShare function as it's replaced by the modal logic
+
+  const breakdown = [
+    { label: 'Heuristics Risk', score: Math.min(100, layers.heuristics.risk * 2), color: '#ef4444' },
+    { label: 'Domain Trust',    score: Math.max(0, 100 - layers.whois.risk * 2), color: '#3b82f6' },
+    { label: 'SSL Security',    score: Math.max(0, 100 - layers.ssl.risk * 2),   color: '#22c55e' },
+  ];
 
   return (
     <motion.div
@@ -115,6 +122,14 @@ export default function PhishingResult({ data }) {
         </div>
 
         <ScoreRing score={risk_score} label="Risk Score" inverted />
+      </motion.div>
+
+      {/* Confidence Breakdown */}
+      <motion.div variants={section}>
+        <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>
+          Risk Allocation
+        </h3>
+        <ConfidenceBreakdown metrics={breakdown} />
       </motion.div>
 
       {/* AI Explanation */}
@@ -208,7 +223,7 @@ export default function PhishingResult({ data }) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={handleShare}
+          onClick={() => setShowShare(true)}
           className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl"
           style={{
             background: 'var(--bg-glass)',
@@ -220,6 +235,12 @@ export default function PhishingResult({ data }) {
           📋 Share Result
         </motion.button>
       </motion.div>
+
+      <ShareCard 
+        isOpen={showShare} 
+        onClose={() => setShowShare(false)} 
+        data={data}
+      />
     </motion.div>
   );
 }

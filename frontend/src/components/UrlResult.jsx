@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Share2, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -5,6 +6,7 @@ import VerdictBadge from './VerdictBadge';
 import ScoreRing from './ScoreRing';
 import RedFlags from './RedFlags';
 import KeyClaims from './KeyClaims';
+import ShareCard from './ShareCard';
 
 const container = {
   hidden: {},
@@ -30,13 +32,10 @@ export default function UrlResult({ data, onShare }) {
     analysis = {}, red_flags = [], key_claims = [],
   } = data;
 
+  const [showShare, setShowShare] = useState(false);
   const bias = biasColors[bias_detected] ?? biasColors.neutral;
 
-  const handleShare = () => {
-    const text = `TruthLens URL Analysis\n${url}\n\nVerdict: ${verdict} (${credibility_score}/100)\nBias: ${bias_detected}\n\nAnalyzed by TruthLens AI`;
-    navigator.clipboard.writeText(text).then(() => toast.success('Copied to clipboard!'));
-    onShare?.();
-  };
+  // Removed handleShare function as it's replaced by the modal logic
 
   return (
     <motion.div
@@ -115,7 +114,7 @@ export default function UrlResult({ data, onShare }) {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
-          onClick={handleShare}
+          onClick={() => setShowShare(true)}
           className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl"
           style={{
             background: 'var(--bg-glass)',
@@ -128,6 +127,12 @@ export default function UrlResult({ data, onShare }) {
           Share Result
         </motion.button>
       </motion.div>
+
+      <ShareCard
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        data={data}
+      />
     </motion.div>
   );
 }

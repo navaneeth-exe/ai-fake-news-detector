@@ -17,6 +17,7 @@ import ImageResult from './components/ImageResult';
 import AudioInput from './components/AudioInput';
 import AudioResult from './components/AudioResult';
 import ResultPlaceholder from './components/ResultPlaceholder';
+import Dashboard from './components/Dashboard';
 import { useTheme, useHistory } from './hooks/hooks';
 import { verifyInput, checkPhishing, checkImage, checkAudio } from './lib/api';
 import toast from 'react-hot-toast';
@@ -29,7 +30,8 @@ export default function App() {
   const { theme, toggle } = useTheme();
   const { history, save, clear } = useHistory();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('news');
+  // Set default tab to 'home'
+  const [activeTab, setActiveTab] = useState('home');
   // News tab state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -183,6 +185,12 @@ export default function App() {
 
         {/* Tab content */}
         <AnimatePresence mode="wait">
+
+
+          {/* ── Dashboard Tab ── */}
+          {activeTab === 'home' && (
+            <Dashboard onNavigate={setActiveTab} />
+          )}
 
           {/* ── Fake News Tab ── */}
           {activeTab === 'news' && (

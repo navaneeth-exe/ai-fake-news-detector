@@ -53,6 +53,13 @@ export async function checkAudio(file) {
   return data;
 }
 
+export async function getTrendingNews() {
+  const res = await fetch(`${API_URL}/api/trending`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Failed to fetch trending news.');
+  return data.articles;
+}
+
 export async function checkHealth() {
   const res = await fetch(`${API_URL}/health`);
   return res.json();

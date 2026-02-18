@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { Sun, Moon, Clock, Zap } from 'lucide-react';
+import { Clock, Zap } from 'lucide-react';
+import ThemeSelector from './ThemeSelector';
 
 export default function Navbar({ theme, onToggleTheme, onToggleHistory, historyCount }) {
   return (
@@ -13,26 +14,7 @@ export default function Navbar({ theme, onToggleTheme, onToggleHistory, historyC
     >
       {/* Left — Actions (right-aligned) */}
       <div className="flex items-center gap-2 justify-start">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={onToggleTheme}
-          className="glass-card p-2 rounded-xl cursor-pointer border-0"
-          aria-label="Toggle theme"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          <motion.div
-            key={theme}
-            initial={{ rotate: -90, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            {theme === 'dark'
-              ? <Sun size={16} style={{ color: '#fbbf24' }} />
-              : <Moon size={16} style={{ color: 'var(--accent)' }} />
-            }
-          </motion.div>
-        </motion.button>
+        <ThemeSelector />
 
         <motion.button
           whileHover={{ scale: 1.1 }}

@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 /* ── CSS Custom Properties ── */
+/* ── CSS Custom Properties ── */
 :root {
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -12,8 +13,10 @@
   --radius-xl: 24px;
 }
 
-/* ── Dark / Light theme vars ── */
-.dark {
+/* ── Theme Definitions ── */
+
+/* 🌌 Cosmic (Default Dark) */
+:root, .theme-cosmic, .dark {
   --bg-primary:   #0a0a1a;
   --bg-secondary: #111128;
   --bg-glass:     rgba(255,255,255,0.05);
@@ -36,27 +39,63 @@
   --warning-bg:   rgba(234,179,8,0.10);
 }
 
-html:not(.dark) {
-  --bg-primary:   #f0f2f5;
-  --bg-secondary: #e8eaed;
+/* 🌿 Eco (Nature/Emerald) */
+.theme-eco {
+  --bg-primary:   #022c22;
+  --bg-secondary: #064e3b;
+  --bg-glass:     rgba(255,255,255,0.05);
+  --bg-glass-h:   rgba(255,255,255,0.10);
+  --border-glass: rgba(255,255,255,0.10);
+  --border-h:     rgba(255,255,255,0.20);
+  --shadow-glass: rgba(0,0,0,0.40);
+  --text-1:       #ecfdf5;
+  --text-2:       #a7f3d0;
+  --text-3:       #6ee7b7;
+  --accent:       #10b981;
+  --accent-d:     #059669;
+  --accent-glow:  rgba(16,185,129,0.40);
+  --accent-sub:   rgba(16,185,129,0.10);
+}
+
+/* 🔥 Ember (Fire/Warm) */
+.theme-ember {
+  --bg-primary:   #2a0a0a;
+  --bg-secondary: #450a0a;
+  --bg-glass:     rgba(255,255,255,0.05);
+  --bg-glass-h:   rgba(255,255,255,0.10);
+  --border-glass: rgba(255,255,255,0.10);
+  --border-h:     rgba(255,255,255,0.20);
+  --shadow-glass: rgba(0,0,0,0.40);
+  --text-1:       #fff1f2;
+  --text-2:       #fecdd3;
+  --text-3:       #fda4af;
+  --accent:       #f43f5e;
+  --accent-d:     #e11d48;
+  --accent-glow:  rgba(244,63,94,0.40);
+  --accent-sub:   rgba(244,63,94,0.10);
+  --warning:      #f59e0b;
+}
+
+/* 🏢 Corporate (Clean Light) */
+.theme-corporate {
+  --bg-primary:   #f8fafc;
+  --bg-secondary: #f1f5f9;
   --bg-glass:     rgba(255,255,255,0.70);
-  --bg-glass-h:   rgba(255,255,255,0.85);
-  --border-glass: rgba(255,255,255,0.50);
-  --border-h:     rgba(255,255,255,0.70);
-  --shadow-glass: rgba(0,0,0,0.08);
-  --text-1:       #1e293b;
-  --text-2:       #64748b;
-  --text-3:       #94a3b8;
-  --accent:       #4f46e5;
-  --accent-d:     #4338ca;
-  --accent-glow:  rgba(79,70,229,0.20);
-  --accent-sub:   rgba(79,70,229,0.06);
+  --bg-glass-h:   rgba(255,255,255,0.90);
+  --border-glass: rgba(148,163,184,0.2);
+  --border-h:     rgba(148,163,184,0.4);
+  --shadow-glass: rgba(0,0,0,0.05);
+  --text-1:       #0f172a;
+  --text-2:       #475569;
+  --text-3:       #64748b;
+  --accent:       #3b82f6;
+  --accent-d:     #2563eb;
+  --accent-glow:  rgba(59,130,246,0.20);
+  --accent-sub:   rgba(59,130,246,0.10);
   --success:      #16a34a;
-  --success-bg:   rgba(22,163,74,0.08);
+  --success-bg:   rgba(22,163,74,0.10);
   --danger:       #dc2626;
-  --danger-bg:    rgba(220,38,38,0.06);
-  --warning:      #ca8a04;
-  --warning-bg:   rgba(202,138,4,0.06);
+  --danger-bg:    rgba(220,38,38,0.10);
 }
 
 /* ── Base ── */

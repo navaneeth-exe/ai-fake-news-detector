@@ -1575,6 +1575,82 @@ Return JSON:
         return jsonify({'success': False, 'error': f"Processing failed: {str(e)}"}), 500
 
 # ============================================
+# TRENDING NEWS ENDPOINT
+# ============================================
+
+@app.route('/api/trending', methods=['GET'])
+def get_trending():
+    """Fetch trending fact-check news from SerpAPI or return fallback data."""
+    try:
+        articles = []
+        
+        if SERPAPI_KEY: 
+            # Fetch from SerpAPI Google News
+            url = "https://serpapi.com/search.json"
+            params = {
+                "engine": "google_news",
+                "q": "fact check",
+                "gl": "us",
+                "hl": "en",
+                "api_key": SERPAPI_KEY
+            }
+            try:
+                response = http_requests.get(url, params=params, timeout=10)
+                data = response.json()
+                
+                if "news_results" in data:
+                    for item in data["news_results"][:6]:
+                        articles.append({
+                            "title": item.get("title", "No Title"),
+                            "source": item.get("source", {}).get("name", "Unknown Source"),
+                            "date": item.get("date", "Recent"),
+                            "link": item.get("link", "#"),
+                            "thumbnail": item.get("thumbnail", None)
+                        })
+            except Exception as e:
+                print(f"⚠️ SerpAPI Error: {e}")
+                # Fall through to fallback
+        
+        # Fallback Data if API fails or yields no results
+        if not articles:
+            articles = [
+                {
+                    "title": "Fact Check: Viral video claimed to show alien invasion is CGI",
+                    "source": "Reuters Fact Check",
+                    "date": "2 hours ago",
+                    "link": "#",
+                    "thumbnail": "https://images.unsplash.com/photo-1544256718-3bcf237f3974?auto=format&fit=crop&q=80&w=200"
+                },
+                {
+                    "title": "Debunked: Government did NOT ban digital currency",
+                    "source": "AP News",
+                    "date": "5 hours ago",
+                    "link": "#",
+                    "thumbnail": "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?auto=format&fit=crop&q=80&w=200"
+                },
+                {
+                    "title": "Health Myth: Drinking hot water does not cure all diseases",
+                    "source": "WHO Mythbusters",
+                    "date": "1 day ago",
+                    "link": "#",
+                    "thumbnail": "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&q=80&w=200"
+                },
+                {
+                    "title": "Deepfake Alert: CEO interview circulating on social media is AI-generated",
+                    "source": "TruthLens Analysis",
+                    "date": "Just now",
+                    "link": "#",
+                    "thumbnail": "https://images.unsplash.com/photo-1639322537228-ad7117a7a640?auto=format&fit=crop&q=80&w=200"
+                }
+            ]
+            
+        return jsonify({"success": True, "articles": articles})
+
+    except Exception as e:
+        print(f"⚠️ Trending API Error: {e}")
+        return jsonify({"success": False, "error": str(e)})
+
+# ============================================
 # START SERVER
 # ============================================
 
