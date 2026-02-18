@@ -216,7 +216,7 @@ export default function App() {
                 <AnimatePresence mode="wait">
                   {loading && (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      <LoadingCard type="image" />
+                      <LoadingCard type="claim" />
                     </motion.div>
                   )}
 
