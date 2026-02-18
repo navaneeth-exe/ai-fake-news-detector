@@ -3,8 +3,10 @@
 # Backend API Server (Groq + URL Analysis)
 # ============================================
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import os
 import json
@@ -21,8 +23,16 @@ env_path = pathlib.Path(__file__).resolve().parent / '.env'
 load_dotenv(dotenv_path=str(env_path))
 
 # Initialize Flask app
-app = Flask(__name__)
-CORS(app)
+app = Flask(__name__, static_folder='../frontend/dist', static_url_path='/')
+CORS(app)  # For production, replace with: CORS(app, origins=["https://your-domain.com"])
+
+# Setup Rate Limiting
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 # ---- API KEYS ----
 GROQ_KEY = os.getenv('GROQ_API_KEY', '').strip()
@@ -497,13 +507,33 @@ Rules:
 # ============================================
 
 @app.route('/')
-def home():
+def serve_frontend():
+    """Serve the React frontend."""
+    if os.path.exists(app.static_folder):
+        return send_from_directory(app.static_folder, 'index.html')
+    return jsonify({
+        'name': 'TruthLens API',
+        'version': '2.0',
+        'status': 'backend_only',
+        'message': 'Build frontend to see full UI'
+    })
+
+
+@app.route('/api/info')
+def api_info():
     return jsonify({
         'name': 'TruthLens API',
         'version': '2.0',
         'description': 'AI-powered fake news detector with URL analysis',
         'ai_model': 'Groq Llama 3.3 70B'
     })
+
+# Serve static assets (JS, CSS, etc.)
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return serve_frontend()
 
 
 @app.route('/health')
@@ -1665,4 +1695,6 @@ if __name__ == '__main__':
     print(f"   Groq: {'✅ Ready' if key else '❌ No API key'}")
     print(f"   SerpAPI: {'✅ Ready' if skey else '❌ No API key'}")
     print("="*50 + "\n")
-    app.run(debug=True, port=5000)
+    # Production: Use Gunicorn; Local: Use debug=True
+    debug_mode = os.getenv('FLASK_ENV') == 'development'
+    app.run(debug=debug_mode, port=5000)
