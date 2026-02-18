@@ -1,4 +1,4 @@
-# 🔍 TruthLens - AI
+# 🔍 TruthLens — AI-Powered Fake News & Deepfake Detector
 
 > **The ultimate forensic tool for the post-truth era.** Verify text, URLs, images, and audio with military-grade AI analysis, wrapped in a stunning, theme-reactive interface.
 
