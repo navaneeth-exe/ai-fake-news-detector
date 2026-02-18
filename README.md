@@ -10,12 +10,6 @@
 
 ---
 
-## 🚀 Live Demo
-
-**[Deploy your own instance on Render](#-deployment)**
-
----
-
 ## ✨ Features
 
 ### 🖥️ **Forensic Dashboard**
@@ -41,7 +35,26 @@
 
 - **Rate Limiting**: Built-in protection against API abuse.
 - **Security**: Hardened HTTP headers and CORS policies.
-- **Docker/Render Ready**: Configured for one-click deployment.
+- **Optimized**: Fast response times with efficient AI prompting.
+
+---
+
+## 🧠 How It Works
+
+### 1. The Intelligence Layer (Groq & Llama 3)
+
+TruthLens doesn't just "guess". It acts as a forensic analyst:
+
+- **Context Extraction**: It understands the nuance of political, social, and scientific claims.
+- **Cross-Referencing**: It queries `SerpAPI` to find the latest real-world evidence from trusted news sources.
+- **Logical Reasoning**: It compares the claim against the evidence to detect inconsistencies, logical fallacies, or out-of-context quotes.
+
+### 2. The Forensic Layer (Signal Processing)
+
+For media files (Images/Audio), we use dedicated analysis pipelines:
+
+- **Error Level Analysis (ELA)** to find digital manipulation in images.
+- **Spectral Analysis** to detect robotic frequencies in audio that human vocal cords cannot produce.
 
 ---
 
@@ -59,25 +72,7 @@
 
 ---
 
-## ☁️ Deployment
-
-### Free Deployment on Render.com
-
-This project is configured for **free hosting** on Render (Frontend + Backend in one service).
-
-1.  **Fork this repository** to your GitHub.
-2.  Sign up at [render.com](https://render.com).
-3.  Create a **New Web Service** and connect your repo.
-4.  **Settings**:
-    - **Build Command**: `cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt`
-    - **Start Command**: `cd backend && gunicorn app:app -c gunicorn_config.py`
-    - **Environment Variables**: Add `GROQ_API_KEY`, `SERPAPI_KEY`, and `FLASK_ENV=production`.
-
-👉 **[Read the Full Deployment Guide](DEPLOYMENT_GUIDE.md)**
-
----
-
-## 🚀 Local Development
+## 🚀 Installation & Setup
 
 ### Prerequisites
 
@@ -85,33 +80,38 @@ This project is configured for **free hosting** on Render (Frontend + Backend in
 - Python 3.9+
 - API Keys: [Groq](https://console.groq.com) and [SerpAPI](https://serpapi.com)
 
-### Installation
-
-#### 1. Backend Setup
+### 1. Backend Setup (Flask)
 
 ```bash
 git clone https://github.com/navaneeth-exe/TruthLens.git
 cd TruthLens/backend
 
-# Create virtual env & Install deps
+# Create virtual env
 python -m venv venv
-# Windows: venv\Scripts\activate
-# Mac/Linux: source venv/bin/activate
+# Activate: venv\Scripts\activate (Windows) or source venv/bin/activate (Mac/Linux)
+
+# Install dependencies
 pip install -r requirements.txt
 
 # Configure Environment
 cp .env.example .env
-# Add keys to .env
+# Open .env and add your GROQ_API_KEY and SERPAPI_KEY
 
 # Run Server
 python app.py
 ```
 
-#### 2. Frontend Setup
+### 2. Frontend Setup (React)
+
+Open a new terminal:
 
 ```bash
 cd ../frontend
+
+# Install dependencies
 npm install
+
+# Run Development Server
 npm run dev
 ```
 
@@ -126,8 +126,7 @@ TruthLens/
 ├── backend/                # Python Flask API
 │   ├── app.py              # Main application logic
 │   ├── requirements.txt    # Dependencies
-│   ├── gunicorn_config.py  # Production server config
-│   └── Procfile            # Deployment command
+│   └── .env                # Secrets
 │
 ├── frontend/               # React + Vite Application
 │   ├── src/
@@ -136,13 +135,13 @@ TruthLens/
 │   │   ├── lib/            # API utilities
 │   │   └── App.jsx         # Main Router
 │   └── vite.config.js      # Bundler config
-│
-└── DEPLOYMENT_GUIDE.md     # Hosting instructions
 ```
 
 ---
 
 ## 🤝 Contributing
+
+We welcome contributions! Please fork the repository and submit a Pull Request.
 
 1. Fork the repo.
 2. Create your feature branch: `git checkout -b feature/amazing-feature`.
